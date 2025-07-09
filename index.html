@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <title>Crocker Rook</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Crocker Rook">
+    <link rel="apple-touch-icon" href="icon-192.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Teko:wght@400;600&display=swap" rel="stylesheet">
     <style>
@@ -41,34 +47,38 @@
             color: var(--text-primary);
             margin: 0;
             padding: 0;
-            overflow: hidden;
+            /* overflow: hidden; */ /* Remove to prevent cutoff */
             -webkit-user-select: none;
             -ms-user-select: none;
             user-select: none;
             touch-action: manipulation;
-            min-height: 100vh;
+            min-height: 100dvh;
+            min-width: 100dvw;
             position: relative;
         }
 
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: 
-                radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, rgba(168, 85, 247, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 40% 60%, rgba(34, 197, 94, 0.05) 0%, transparent 50%);
-            pointer-events: none;
-            z-index: -1;
+        @media (orientation: portrait) {
+            body::before {
+                content: 'Please rotate your device to landscape.';
+                position: fixed;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(15, 23, 42, 0.98);
+                color: #fff;
+                z-index: 9999;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 2.2em;
+                text-align: center;
+                padding: 2em;
+            }
+            .game-container { display: none !important; }
         }
 
         .game-container {
             position: relative;
-            width: 100vw;
-            height: 100vh;
+            width: 100dvw;
+            height: 100dvh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -258,6 +268,9 @@
             color: white;
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
+        .card .card-back-face span {
+            color: black !important;
+        }
 
         .card.is-flipped .card-face { transform: rotateY(-180deg); }
         .card.is-flipped .card-back-face { transform: rotateY(0deg); }
@@ -318,7 +331,7 @@
         .card[data-suit="Green"] { color: var(--green-suit); }
         .card[data-suit="Yellow"] { color: var(--yellow-suit); }
         .card[data-suit="Special"] { color: var(--black-suit); }
-        .card[data-suit="Special"] .suit-icon { color: var(--black-suit) !important; }
+        .card[data-suit="Special"] .suit-icon { color: black !important; }
 
         @media (max-width: 768px) {
             .card .rank { 
@@ -2087,6 +2100,50 @@
         }
 
         const game = new Game();
+
+        // Register service worker for PWA functionality
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch(registrationError => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+
+        // Prevent zoom on double tap (iOS)
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function (event) {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+
+        // Prevent pull-to-refresh on mobile
+        document.body.addEventListener('touchmove', function(e) {
+            if (e.target.closest('.modal-content') || e.target.closest('#bid-input')) {
+                return; // Allow scrolling in modals and inputs
+            }
+            e.preventDefault();
+        }, { passive: false });
+
+        function setGameContainerSize() {
+            const container = document.querySelector('.game-container');
+            if (container) {
+                container.style.height = window.innerHeight + 'px';
+                container.style.width = window.innerWidth + 'px';
+            }
+        }
+        window.addEventListener('load', setGameContainerSize);
+        window.addEventListener('resize', setGameContainerSize);
+        window.addEventListener('orientationchange', setGameContainerSize);
+        // Call once in case script loads after DOM
+        setTimeout(setGameContainerSize, 100);
     </script>
 </body>
 </html>
