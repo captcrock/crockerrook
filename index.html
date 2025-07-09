@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>Crocker Rook</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Teko:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --black-suit: #2d3436;
+            --red-suit: #d63031;
+            --green-suit: #00b894;
+            --yellow-suit: #fdcb6e;
+            --card-back: #2980b9;
+            --table-color: #006266;
+            --border-color: #feca57;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--table-color);
+            color: white;
+            overflow: hidden;
+            -webkit-user-select: none; /* Safari */
+            -ms-user-select: none; /* IE 10+ */
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        .game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: 1200px;
+            max-height: 800px;
+            margin: auto;
+        }
+
+        .game-board {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 70%;
+            height: 70%;
+            transform: translate(-50%, -50%);
+            background-image: radial-gradient(circle, #007075, #005053);
+            border: 8px solid var(--border-color);
+            box-shadow: 0 0 20px rgba(0,0,0,0.5), inset 0 0 30px rgba(0,0,0,0.4);
+            border-radius: 100px;
+        }
+        
+        .player-area {
+            position: absolute;
+            width: 50%; 
+            height: 20%;
+            z-index: 50;
+        }
+
+        .player-bottom { bottom: 0; left: 50%; transform: translateX(-50%); }
+        .player-top { top: 0; left: 50%; transform: translateX(-50%) rotate(180deg); }
+        .player-left { top: 50%; left: 5%; width: 20%; height: 50%; transform: translateY(-50%) rotate(90deg); }
+        .player-right { top: 50%; right: 5%; width: 20%; height: 50%; transform: translateY(-50%) rotate(-90deg); }
+        
+        .hand {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            transition: all 0.3s ease-in-out;
+        }
+        
+        #player-0-hand, #player-2-hand {
+            flex-direction: row-reverse;
+        }
+        
+        .hand.bury-selection {
+            align-content: center;
+        }
+        .hand.bury-selection .card {
+            margin: 0 -38px; 
+        }
+
+        .card {
+            position: relative;
+            width: 70px;
+            height: 100px;
+            background-color: white;
+            border: 1px solid #333;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            font-family: 'Teko', sans-serif;
+            font-size: 28px;
+            font-weight: 600;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 3px 3px 7px rgba(0,0,0,0.3);
+            margin: 0 -25px;
+            transform-style: preserve-3d;
+        }
+        
+        .card .card-face, .card .card-back-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.6s;
+        }
+        
+        .card .card-back-face {
+            background-color: var(--card-back);
+            transform: rotateY(180deg);
+            font-size: 40px;
+        }
+
+        .card.is-flipped .card-face { transform: rotateY(-180deg); }
+        .card.is-flipped .card-back-face { transform: rotateY(0deg); }
+        
+        .player-bottom .card:hover {
+            transform: translateY(-20px) scale(1.1);
+            z-index: 100;
+        }
+
+        .card.playable { box-shadow: 0 0 15px 5px #ffdd59; z-index: 100; }
+        .card.selected-for-bury { transform: translateY(-20px) scale(1.05); box-shadow: 0 0 15px 5px #3498db; z-index: 101; }
+        .card.selected-to-play {
+            transform: translateY(-20px) scale(1.15) !important;
+            box-shadow: 0 0 20px 8px #2ecc71 !important;
+            z-index: 102 !important;
+        }
+        
+        .card .rank { position: absolute; top: 5px; left: 8px; font-size: 20px; }
+        .card .suit-icon { font-size: 40px; }
+        .card[data-suit="Black"] { color: var(--black-suit); }
+        .card[data-suit="Red"] { color: var(--red-suit); }
+        .card[data-suit="Green"] { color: var(--green-suit); }
+        .card[data-suit="Yellow"] { color: var(--yellow-suit); }
+        .card[data-suit="Special"] { color: var(--black-suit); }
+
+        .trick-area, .nest-display-area {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 50%; height: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .nest-display-area .card { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); cursor: default; }
+        .trick-area .card { position: absolute; cursor: default; }
+        
+        .player-info { position: absolute; background-color: rgba(0,0,0,0.5); padding: 5px 10px; border-radius: 8px; font-size: 14px; text-align: center; }
+        .info-top { top: 21%; left: 50%; transform: translateX(-50%); }
+        .info-bottom { bottom: 21%; left: 50%; transform: translateX(-50%); }
+        .info-left { left: 16%; top: 50%; transform: translateY(-50%) rotate(90deg); }
+        .info-right { right: 16%; top: 50%; transform: translateY(-50%) rotate(-90deg); }
+        .player-info.high-bidder {
+            border: 3px solid var(--yellow-suit);
+            box-shadow: 0 0 20px 5px var(--yellow-suit);
+        }
+
+        .modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; z-index: 200; pointer-events: none; }
+        .modal.active { pointer-events: auto; background-color: rgba(0,0,0,0.6); }
+        
+        #bury-modal.active {
+            background-color: transparent;
+            pointer-events: none;
+        }
+        
+        #bidding-modal, #difficulty-modal, #trump-modal, #round-summary-modal, #last-trick-modal, #settings-modal, #rules-modal, #strategy-modal { 
+            align-items: center; 
+        }
+        
+        #bury-modal {
+            align-items: flex-end;
+            padding-bottom: 22%;
+        }
+        
+        .modal-content { background-color: #333; padding: 30px; border-radius: 15px; text-align: center; border: 4px solid var(--border-color); box-shadow: 0 0 25px rgba(0,0,0,0.7); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+        .modal.active .modal-content { opacity: 1; pointer-events: auto; }
+        
+        #bury-modal .modal-content {
+            max-width: 400px;
+            padding: 15px;
+        }
+        #bid-input, #winning-score-input { color: white; background-color: #555; text-align: center; }
+
+        .modal-content button, .new-game-btn, .utility-btn { background-color: var(--yellow-suit); color: var(--black-suit); border: none; padding: 10px 20px; margin: 5px; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 4px #b88a1b; }
+        .modal-content button:hover, .new-game-btn:hover, .utility-btn:hover { background-color: #ffde7a; transform: translateY(-2px); box-shadow: 0 6px #b88a1b; }
+        .modal-content button:active, .new-game-btn:active, .utility-btn:active { transform: translateY(2px); box-shadow: 0 2px #b88a1b; }
+        .modal-content button:disabled, .utility-btn:disabled { background-color: #999; cursor: not-allowed; box-shadow: 0 4px #666; }
+        
+        .hamburger-menu { position: absolute; top: 20px; right: 20px; z-index: 220; }
+        .hamburger-icon { width: 40px; height: 40px; display: flex; flex-direction: column; justify-content: space-around; cursor: pointer; background-color: var(--yellow-suit); padding: 8px; border-radius: 8px; }
+        .hamburger-icon .bar { width: 100%; height: 3px; background-color: var(--black-suit); border-radius: 2px; }
+        .dropdown-menu { display: none; position: absolute; right: 0; top: 50px; background-color: #333; border: 2px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+        .dropdown-menu.show { display: block; }
+        .dropdown-item { display: block; width: 100%; padding: 12px 20px; color: white; text-align: left; background: none; border: none; cursor: pointer; }
+        .dropdown-item:hover { background-color: #444; }
+
+        .trump-indicator { position: absolute; top: 80px; right: 20px; width: 50px; height: 50px; border-radius: 50%; border: 4px solid white; display: flex; justify-content: center; align-items: center; font-size: 30px; font-weight: bold; background-color: #333; z-index: 210; }
+        
+        .status-message { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: rgba(0,0,0,0.8); padding: 20px 40px; border-radius: 15px; font-size: 24px; font-weight: bold; border: 3px solid var(--border-color); z-index: 250; }
+        
+        #widow-on-table { position: absolute; }
+        #widow-on-table .card { position: absolute; }
+
+        #see-last-trick-btn {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 210;
+        }
+
+        .game-summary-box {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 210;
+            background-color: rgba(0,0,0,0.5);
+            padding: 8px;
+            border-radius: 10px;
+            border: 2px solid var(--border-color);
+            font-size: 11px;
+            width: 180px;
+        }
+        .game-summary-box .total-scores {
+            display: flex;
+            justify-content: space-between;
+        }
+        .last-trick-display { display: flex; justify-content: center; gap: 10px; padding: 20px; }
+
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div id="game-summary-box" class="game-summary-box hidden"></div>
+        <button id="see-last-trick-btn" class="utility-btn" disabled>See Last Trick</button>
+        
+        <div id="trump-indicator" class="trump-indicator hidden"></div>
+        
+        <div id="hamburger-menu" class="hamburger-menu">
+            <div id="hamburger-icon" class="hamburger-icon">
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+            </div>
+            <div id="dropdown-menu" class="dropdown-menu">
+                <button id="menu-new-game" class="dropdown-item">New Game</button>
+                <button id="menu-settings" class="dropdown-item">Settings</button>
+                <button id="menu-exit" class="dropdown-item">Exit</button>
+            </div>
+        </div>
+        
+        <div class="player-area player-top"><div id="player-2-hand" class="hand"></div></div>
+        <div class="player-area player-left"><div id="player-1-hand" class="hand"></div></div>
+        <div class="player-area player-right"><div id="player-3-hand" class="hand"></div></div>
+        <div class="player-area player-bottom"><div id="player-0-hand" class="hand"></div></div>
+
+        <div id="player-0-info" class="player-info info-bottom"></div>
+        <div id="player-1-info" class="player-info info-left"></div>
+        <div id="player-2-info" class="player-info info-top"></div>
+        <div id="player-3-info" class="player-info info-right"></div>
+
+        <div class="game-board">
+            <div id="nest-display-area" class="nest-display-area"></div>
+            <div id="trick-area" class="trick-area"></div>
+            <div id="widow-on-table"></div>
+        </div>
+
+        <div id="status-message" class="status-message hidden"></div>
+
+        <!-- Modals -->
+        <div id="difficulty-modal" class="modal active"></div>
+        <div id="bidding-modal" class="modal"></div>
+        <div id="trump-modal" class="modal"></div>
+        <div id="bury-modal" class="modal"></div>
+        <div id="round-summary-modal" class="modal"></div>
+        <div id="last-trick-modal" class="modal"></div>
+        <div id="settings-modal" class="modal"></div>
+        <div id="rules-modal" class="modal"></div>
+        <div id="strategy-modal" class="modal"></div>
+    </div>
+
+    <script>
+        const SUITS = ['Black', 'Red', 'Green', 'Yellow'];
+        const RANKS = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 1];
+        let WINNING_SCORE = 500;
+        const HUMAN_PLAYER_ID = 0;
+
+        class Card {
+            constructor(suit, rank) { this.suit = suit; this.rank = rank; this.id = `${suit}-${rank}`; }
+            get value() { if (this.rank === 'Rook') return 20; const r = Number(this.rank); if (r === 1) return 15; if (r === 10 || r === 14) return 10; if (r === 5) return 5; return 0; }
+            get power() { if (this.rank === 'Rook') return 20; const r = Number(this.rank); if (r === 1) return 15; return r; }
+        }
+
+        class Deck {
+            constructor() { this.cards = []; this.create(); }
+            create() { this.cards = []; for (const suit of SUITS) { for (const rank of RANKS) { this.cards.push(new Card(suit, rank)); } } this.cards.push(new Card('Special', 'Rook')); }
+            shuffle() { for (let i = this.cards.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[this.cards[i], this.cards[j]] = [this.cards[j], this.cards[i]]; } }
+            deal(numPlayers, cardsPerPlayer) {
+                const hands = Array.from({ length: numPlayers }, () => []);
+                const nest = [];
+                for (let i = 0; i < 5; i++) { nest.push(this.cards.pop()); }
+                for (let i = 0; i < cardsPerPlayer; i++) { for (let j = 0; j < numPlayers; j++) { hands[j].push(this.cards.pop()); } }
+                return { hands, nest };
+            }
+        }
+
+        class Player {
+            constructor(id, isHuman = false) { this.id = id; this.hand = []; this.isHuman = isHuman; this.partnerId = (id + 2) % 4; this.hasPassed = false; }
+            sortHand(trumpSuit = null, sortOrder = 'asc') {
+                this.hand.sort((a, b) => {
+                    const isARook = a.rank === 'Rook';
+                    const isBRook = b.rank === 'Rook';
+
+                    if (isARook) return sortOrder === 'asc' ? 1 : -1;
+                    if (isBRook) return sortOrder === 'asc' ? -1 : 1;
+
+                    const isATrump = a.suit === trumpSuit;
+                    const isBTrump = b.suit === trumpSuit;
+
+                    if (isATrump !== isBTrump) {
+                        return (sortOrder === 'asc' ? 1 : -1) * (isATrump ? 1 : -1);
+                    }
+                    
+                    if (a.suit !== b.suit) {
+                        return SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit);
+                    }
+
+                    return (sortOrder === 'asc' ? 1 : -1) * (a.power - b.power);
+                });
+            }
+
+            getBid(currentBid, hasShootTheMoonOption, difficulty) {
+                let s = 0; s += this.hand.filter(c => c.rank === 'Rook').length * 25; s += this.hand.filter(c => c.rank === 1).length * 15; s += this.hand.filter(c => c.rank === 14).length * 10; s += this.hand.filter(c => c.rank === 10).length * 8;
+                const counts = SUITS.reduce((acc, suit) => { acc[suit] = this.hand.filter(c => c.suit === suit).length; return acc; }, {});
+                for (const suit in counts) { if (counts[suit] >= 5) s += counts[suit] * 6; if (counts[suit] === 0) s += 12; }
+                
+                let bidModifier = 0;
+                if (difficulty === 'easy') bidModifier = -20;
+                if (difficulty === 'hard') bidModifier = 10;
+                s += bidModifier;
+
+                if (s > 150 && hasShootTheMoonOption) return 'shoot';
+                const target = 85 + Math.floor(s / 4) * 5;
+                if (target > currentBid && target < 181) return currentBid + 5;
+                return 'pass';
+            }
+
+            chooseCardsToBury(difficulty) {
+                this.sortHand(game.trumpSuit, game.handSortOrder);
+                const nonPoints = this.hand.filter(c => c.value === 0 && c.suit !== game.trumpSuit && c.rank !== 'Rook');
+                const lowPoints = this.hand.filter(c => c.value > 0).sort((a, b) => a.value - b.value);
+                let toBury = [...nonPoints, ...lowPoints];
+                return toBury.slice(0, 5);
+            }
+
+            getAdvancedBid(currentBid, hasShootTheMoonOption) {
+                let handValue = 0;
+                // Basic point card values
+                handValue += this.hand.filter(c => c.rank === 'Rook').length * 25;
+                handValue += this.hand.filter(c => c.rank === 1).length * 15;
+                handValue += this.hand.filter(c => c.rank === 14).length * 10;
+                handValue += this.hand.filter(c => c.rank === 10).length * 8;
+                handValue += this.hand.filter(c => c.rank === 5).length * 5;
+
+                const suitCounts = SUITS.reduce((acc, suit) => { acc[suit] = this.hand.filter(c => c.suit === suit).length; return acc; }, {});
+                
+                // Advanced distribution valuation
+                for (const suit in suitCounts) {
+                    if (suitCounts[suit] >= 5) handValue += suitCounts[suit] * 5; // Long suit bonus
+                    if (suitCounts[suit] === 0) handValue += 18; // Void bonus
+                    if (suitCounts[suit] === 1) handValue += 8;  // Singleton bonus
+                }
+
+                if (handValue > 150 && hasShootTheMoonOption) return 'shoot';
+                
+                // Convert hand value to a reasonable bid
+                const potentialBid = 75 + Math.floor(handValue / 5) * 5;
+
+                if (potentialBid > currentBid && potentialBid < 181) {
+                    return Math.min(potentialBid, currentBid + 15); // Don't jump too high
+                }
+                return 'pass';
+            }
+
+            chooseAdvancedTrumpAndBury() {
+                let bestSuit = '';
+                let maxSuitScore = -1;
+
+                // 1. Determine the best trump suit from the 15 cards
+                for (const suit of SUITS) {
+                    let currentSuitScore = 0;
+                    const trumps = this.hand.filter(c => c.suit === suit);
+                    const controlCards = trumps.filter(c => c.power >= 13); // 13, 14, 1
+                    
+                    currentSuitScore += trumps.length * 10; // Base value for length
+                    currentSuitScore += controlCards.length * 15; // Value for high trumps
+                    if (this.hand.some(c => c.rank === 'Rook')) {
+                        currentSuitScore += 20; // Rook is always good
+                    }
+
+                    if (currentSuitScore > maxSuitScore) {
+                        maxSuitScore = currentSuitScore;
+                        bestSuit = suit;
+                    }
+                }
+                game.trumpSuit = bestSuit; // Temporarily set for sorting
+
+                // 2. Identify cards to bury
+                const cardsToKeep = [];
+                const cardsToConsiderBurying = [];
+
+                // Always keep the Rook and all trumps
+                this.hand.forEach(card => {
+                    if (card.rank === 'Rook' || card.suit === bestSuit) {
+                        cardsToKeep.push(card);
+                    } else {
+                        cardsToConsiderBurying.push(card);
+                    }
+                });
+
+                // Keep off-suit Aces (1s)
+                const offSuitAces = cardsToConsiderBurying.filt
