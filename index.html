@@ -233,41 +233,6 @@
         }
         .last-trick-display { display: flex; justify-content: center; gap: 10px; padding: 20px; }
 
-        .score-pad {
-            background-color: #e9e4d4;
-            color: #3d3d3d;
-            border-radius: 8px;
-            padding: 15px;
-            width: 350px;
-            font-family: 'Courier New', Courier, monospace;
-            border: 1px solid #c8bca8;
-        }
-        .score-pad-header, .score-pad-row, .score-pad-footer {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            text-align: center;
-            padding: 8px 0;
-        }
-        .score-pad-header {
-            font-weight: bold;
-            font-size: 1.1rem;
-            border-bottom: 2px solid #a4b0be;
-        }
-        .score-pad-body {
-            max-height: 200px;
-            overflow-y: auto;
-        }
-        .score-pad-row {
-            border-bottom: 1px dashed #a4b0be;
-        }
-        .score-pad-footer {
-            font-weight: bold;
-            font-size: 1.1rem;
-            border-top: 2px solid #a4b0be;
-            margin-top: 5px;
-            padding-top: 10px;
-        }
-
     </style>
 </head>
 <body>
@@ -307,6 +272,14 @@
         </div>
 
         <div id="status-message" class="status-message hidden"></div>
+
+        <!-- Action buttons for after burying widow -->
+        <div id="post-bury-actions" class="hidden absolute bottom-[22%] left-1/2 -translate-x-1/2 z-[150] flex gap-3 p-3 bg-black/50 rounded-xl">
+            <button id="action-call-trump" class="utility-btn">Call Trump</button>
+            <button id="action-ask-partner" class="utility-btn bg-blue-500 hover:bg-blue-600">Ask Partner</button>
+            <button id="action-no-trump" class="utility-btn bg-gray-500 hover:bg-gray-600">No Trump</button>
+            <button id="action-fold" class="utility-btn bg-red-600 hover:bg-red-700">Fold</button>
+        </div>
 
         <!-- Modals -->
         <div id="difficulty-modal" class="modal active"></div>
@@ -354,12 +327,13 @@
 
                     if (isARook) return sortOrder === 'asc' ? 1 : -1;
                     if (isBRook) return sortOrder === 'asc' ? -1 : 1;
-
-                    const isATrump = a.suit === trumpSuit;
-                    const isBTrump = b.suit === trumpSuit;
-
-                    if (isATrump !== isBTrump) {
-                        return (sortOrder === 'asc' ? 1 : -1) * (isATrump ? 1 : -1);
+                    
+                    if (trumpSuit !== null) {
+                        const isATrump = a.suit === trumpSuit;
+                        const isBTrump = b.suit === trumpSuit;
+                        if (isATrump !== isBTrump) {
+                            return (sortOrder === 'asc' ? 1 : -1) * (isATrump ? 1 : -1);
+                        }
                     }
                     
                     if (a.suit !== b.suit) {
@@ -368,6 +342,52 @@
 
                     return (sortOrder === 'asc' ? 1 : -1) * (a.power - b.power);
                 });
+            }
+
+            getBid(currentBid, hasShootTheMoonOption, difficulty) {
+                // Simple AI for bidding
+                const pointCards = this.hand.filter(c => c.value > 5).length;
+                const rook = this.hand.some(c => c.rank === 'Rook');
+                let bidStrength = pointCards * 10 + (rook ? 20 : 0);
+
+                const potentialBid = 85 + Math.floor(bidStrength / 5) * 5;
+
+                if (potentialBid > currentBid) {
+                    return potentialBid;
+                }
+                return 'pass';
+            }
+
+            chooseCardsToBury(difficulty) {
+                // Simple AI for burying cards
+                this.sortHand(game.trumpSuit, 'asc'); // Sort to put low cards first
+                const nonTrumps = this.hand.filter(c => c.suit !== game.trumpSuit && c.rank !== 'Rook');
+                return nonTrumps.slice(0, 5); // Bury the 5 lowest non-trumps
+            }
+
+            playCard(trick, trumpSuit, difficulty) {
+                const playableCards = this.getPlayableCards(trick.map(p => p.card), trumpSuit);
+                // Simple AI: play the first playable card
+                return playableCards.sort((a, b) => a.power - b.power)[0];
+            }
+            
+            chooseTrump() {
+                let bestSuit = '';
+                let maxSuitScore = -1;
+                for (const suit of SUITS) {
+                    let currentSuitScore = 0;
+                    const suitCards = this.hand.filter(c => c.suit === suit);
+                    const highCards = suitCards.filter(c => c.power >= 13);
+                    currentSuitScore += suitCards.length * 2;
+                    currentSuitScore += highCards.length * 5;
+                    if (this.hand.some(c => c.rank === 'Rook')) currentSuitScore += 3;
+
+                    if (currentSuitScore > maxSuitScore) {
+                        maxSuitScore = currentSuitScore;
+                        bestSuit = suit;
+                    }
+                }
+                return bestSuit || SUITS[Math.floor(Math.random() * SUITS.length)]; // Fallback
             }
 
             getAdvancedBid(currentBid, hasShootTheMoonOption) {
@@ -502,9 +522,9 @@
                     const canWinCards = playableCards.filter(c => {
                         if (c.rank === 'Rook') return true;
                         if (winningCard.rank === 'Rook') return false;
-                        if (c.suit === trumpSuit && winningCard.suit !== trumpSuit) return true;
-                        if (c.suit === trumpSuit && winningCard.suit === trumpSuit) return c.power > winningCard.power;
-                        if (c.suit === leadSuit && winningCard.suit !== trumpSuit) return c.power > winningCard.power;
+                        if (trumpSuit !== null && c.suit === trumpSuit && winningCard.suit !== trumpSuit) return true;
+                        if (trumpSuit !== null && c.suit === trumpSuit && winningCard.suit === trumpSuit) return c.power > winningCard.power;
+                        if (c.suit === leadSuit && (trumpSuit === null || winningCard.suit !== trumpSuit)) return c.power > winningCard.power;
                         return false;
                     });
 
@@ -523,19 +543,36 @@
                 }
 
                 const leadCard = trickCards[0];
-                let leadSuit = leadCard.rank === 'Rook' ? trumpSuit : leadCard.suit;
+                
+                if (trumpSuit === null) { // No Trump logic
+                    // Rook is special, but not a suit. If led, anyone can play anything.
+                    if (leadCard.rank === 'Rook') {
+                        return [...this.hand];
+                    }
+                    // Must follow suit if possible
+                    const cardsInLeadSuit = this.hand.filter(c => c.suit === leadCard.suit);
+                    if (cardsInLeadSuit.length > 0) {
+                        return cardsInLeadSuit;
+                    }
+                    return [...this.hand]; // Can play anything if void in lead suit
+                }
+
+                // Standard trump logic
+                const leadSuit = leadCard.rank === 'Rook' ? trumpSuit : leadCard.suit;
 
                 const cardsInLeadSuit = this.hand.filter(c => {
                     if (leadSuit === trumpSuit) {
+                        // If trump is led, must play trump (or Rook)
                         return c.suit === trumpSuit || c.rank === 'Rook';
                     }
+                    // If non-trump is led, must follow suit
                     return c.suit === leadSuit;
                 });
 
                 if (cardsInLeadSuit.length > 0) {
                     return cardsInLeadSuit;
                 }
-                return [...this.hand];
+                return [...this.hand]; // If void in lead suit, can play anything
             }
         }
 
@@ -560,6 +597,7 @@
                     seeLastTrickBtn: document.getElementById('see-last-trick-btn'),
                     trumpIndicator: document.getElementById('trump-indicator'),
                     roundSummaryModal: document.getElementById('round-summary-modal'),
+                    postBuryActions: document.getElementById('post-bury-actions'),
                     hamburgerIcon: document.getElementById('hamburger-icon'),
                     dropdownMenu: document.getElementById('dropdown-menu'),
                     menuNewGame: document.getElementById('menu-new-game'),
@@ -635,19 +673,30 @@
                          <p>Select 5 cards from your hand to place in the Widow.</p>
                          <p>Selected: <span id="bury-count">0</span> / 5</p>
                          <button id="bury-confirm-button" class="mt-4" disabled>Confirm</button>`);
-                this.dom.roundSummaryModal.innerHTML = this.createModalContent('Score Pad', `
-                    <div id="score-pad" class="score-pad">
-                        <div class="score-pad-header">
-                            <div>Team 1 (You & P3)</div>
-                            <div>Team 2 (P2 & P4)</div>
+                
+                const roundSummaryContent = `
+                    <div id="round-summary-container" class="w-full max-w-2xl text-white p-4">
+                        <div class="grid grid-cols-6 gap-4 text-center border-b border-gray-500 pb-2 font-bold text-gray-300">
+                            <div>Team 1</div>
+                            <div>Team 2</div>
+                            <div>Dealer</div>
+                            <div>High Bid</div>
+                            <div>Trump</div>
+                            <div>Rook</div>
                         </div>
-                        <div id="score-pad-body" class="score-pad-body"></div>
-                        <div class="score-pad-footer">
-                            <div id="total-score-1">Total: 0</div>
-                            <div id="total-score-2">Total: 0</div>
+                        <div class="grid grid-cols-6 gap-4 text-center pt-4 text-lg items-center">
+                            <div id="summary-team1-score" class="font-bold text-2xl"></div>
+                            <div id="summary-team2-score" class="font-bold text-2xl"></div>
+                            <div id="summary-dealer"></div>
+                            <div id="summary-high-bid" class="text-sm"></div>
+                            <div id="summary-trump"></div>
+                            <div id="summary-rook"></div>
                         </div>
                     </div>
-                    <button id="continue-button" class="mt-6">Continue</button>`);
+                    <button id="continue-button" class="mt-8">Continue</button>
+                `;
+                this.dom.roundSummaryModal.innerHTML = this.createModalContent('Round Summary', roundSummaryContent);
+
                 this.dom.lastTrickModal.innerHTML = this.createModalContent('Last Trick', `<div id="last-trick-display" class="last-trick-display"></div><button id="close-last-trick" class="mt-4">Close</button>`);
                 this.dom.settingsModal.innerHTML = this.createModalContent('Settings', `
                     <div class="flex flex-col gap-6 items-center">
@@ -734,7 +783,8 @@
                     if (e.target.id === 'continue-button') {
                         this.hideModal('roundSummary');
                         if (this.scores.team1 >= WINNING_SCORE || this.scores.team2 >= WINNING_SCORE) {
-                            this.showMessage(`${this.scores.team1 >= WINNING_SCORE ? "Team 1" : "Team 2"} wins the game!`, 5000);
+                            this.showMessage(`${this.scores.team1 >= WINNING_SCORE ? "You and your Partner" : "The Opponents"} win the game!`, 5000);
+                            setTimeout(() => this.showModal('difficulty'), 5000);
                         } else {
                             this.startNewHand();
                         }
@@ -780,7 +830,9 @@
                 this.currentHandData = { rookWinner: null };
                 this.lastTrick = [];
                 this.trickHistory = [];
+                this.isFolded = false;
                 this.dom.seeLastTrickBtn.disabled = true;
+                this.dom.postBuryActions.classList.add('hidden');
                 this.updateLiveSummary();
                 this.dom.gameSummaryBox.classList.remove('hidden');
                 this.dom.trickArea.innerHTML = '';
@@ -842,10 +894,12 @@
 
                 if (this.highBid === 'shoot') { this.showMessage(`${this.currentHandData.highBidder} is Shooting the Moon!`, 2000); this.highBid = 180; this.isShootingMoon = true; }
                 else { this.showMessage(`${this.currentHandData.highBidder} won with ${this.highBid}`, 2000); this.isShootingMoon = false; }
-                await this.sleep(2000); this.handleNestAndTrump();
+                await this.sleep(2000); 
+                this.handleNestAndTrump();
             }
             
             async handleNestAndTrump() {
+                this.isFolded = false; 
                 await this.revealNest();
                 this.highBidder.hand.push(...this.nest);
                 
@@ -854,7 +908,29 @@
                     this.highBidder.sortHand(null, this.handSortOrder);
                     this.renderPlayerHand(this.highBidder.id, false, true);
                     await this.getHumanBury();
-                    trump = await this.getHumanTrump();
+                    this.renderPlayerHand(this.highBidder.id);
+
+                    const choice = await this.getHumanPostBuryChoice();
+
+                    if (choice === 'fold') {
+                        this.isFolded = true;
+                        this.currentHandData.bidAmount = `${this.highBid} (Fold)`;
+                        this.showMessage(`${this.dom.infos[this.highBidder.id].textContent} folds.`, 2000);
+                        await this.sleep(2000);
+                        this.endHand();
+                        return; 
+                    } else if (choice === 'ask') {
+                        const partner = this.players[this.highBidder.partnerId];
+                        this.showMessage(`Asking partner to call trump...`, 2000);
+                        await this.sleep(2000);
+                        trump = partner.chooseTrump();
+                        this.showMessage(`Partner calls ${trump}!`, 2000);
+                        await this.sleep(1000);
+                    } else if (choice === 'no-trump') {
+                        trump = null;
+                    } else { // 'call'
+                        trump = await this.getHumanTrump();
+                    }
                 } else {
                     if (this.difficulty === 'hard') {
                         const { trumpSuit, buriedCards } = this.highBidder.chooseAdvancedTrumpAndBury();
@@ -863,7 +939,7 @@
                     } else {
                         const counts = SUITS.reduce((acc, suit) => { acc[suit] = this.highBidder.hand.filter(c => c.suit === suit).length; return acc; }, {});
                         trump = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
-                        this.setTrump(trump); // Set trump early for basic AI to bury correctly
+                        this.setTrump(trump);
                         const toBury = this.highBidder.chooseCardsToBury(this.difficulty);
                         this.widow = toBury;
                         this.highBidder.hand = this.highBidder.hand.filter(c => !toBury.includes(c));
@@ -927,27 +1003,40 @@
             
             determineTrickWinner(trick) {
                 if (!trick || trick.length === 0) return null;
-                let winningPlay = trick[0];
                 
                 const rookPlay = trick.find(p => p.card.rank === 'Rook');
                 if (rookPlay) return { player: rookPlay.player, card: rookPlay.card };
-
-                const leadSuit = winningPlay.card.rank === 'Rook' ? this.trumpSuit : winningPlay.card.suit;
                 
-                for (let i = 1; i < trick.length; i++) {
-                    const currentPlay = trick[i];
-                    const winningCard = winningPlay.card;
-                    const currentCard = currentPlay.card;
+                let winningPlay = trick[0];
+                const leadSuit = winningPlay.card.suit;
 
-                    if (winningCard.suit === this.trumpSuit) {
-                        if (currentCard.suit === this.trumpSuit && currentCard.power > winningCard.power) {
+                if (this.trumpSuit === null) { // No Trump logic
+                    for (let i = 1; i < trick.length; i++) {
+                        const currentPlay = trick[i];
+                        if (currentPlay.card.suit === leadSuit && currentPlay.card.power > winningPlay.card.power) {
                             winningPlay = currentPlay;
                         }
-                    } else {
-                        if (currentCard.suit === this.trumpSuit) {
-                            winningPlay = currentPlay;
-                        } else if (currentCard.suit === leadSuit && currentCard.power > winningCard.power) {
-                            winningPlay = currentPlay;
+                    }
+                } else { // Standard Trump logic
+                    const leadSuitIsTrump = leadSuit === this.trumpSuit;
+                    for (let i = 1; i < trick.length; i++) {
+                        const currentPlay = trick[i];
+                        const winningCard = winningPlay.card;
+                        const currentCard = currentPlay.card;
+
+                        const winningCardIsTrump = winningCard.suit === this.trumpSuit;
+                        const currentCardIsTrump = currentCard.suit === this.trumpSuit;
+
+                        if (winningCardIsTrump) {
+                            if (currentCardIsTrump && currentCard.power > winningCard.power) {
+                                winningPlay = currentPlay;
+                            }
+                        } else {
+                            if (currentCardIsTrump) {
+                                winningPlay = currentPlay;
+                            } else if (currentCard.suit === leadSuit && currentCard.power > winningCard.power) {
+                                winningPlay = currentPlay;
+                            }
                         }
                     }
                 }
@@ -956,6 +1045,24 @@
             
             endHand() {
                 this.dom.trickArea.innerHTML = '';
+
+                if (this.isFolded) {
+                    const bidTeam = (this.highBidder.id === 0 || this.highBidder.id === 2) ? 1 : 2;
+                    if (bidTeam === 1) {
+                        this.scores.team1 -= this.highBid;
+                        this.currentHandData.team1Score = `-${this.highBid}`;
+                        this.currentHandData.team2Score = 0;
+                    } else {
+                        this.scores.team2 -= this.highBid;
+                        this.currentHandData.team2Score = `-${this.highBid}`;
+                        this.currentHandData.team1Score = 0;
+                    }
+                    this.handHistory.push(this.currentHandData);
+                    this.updateScoreboard();
+                    this.showRoundSummary();
+                    return;
+                }
+
                 if (this.trickLeaderIndex === 0 || this.trickLeaderIndex === 2) { this.team1Tricks.push(...this.widow); } else { this.team2Tricks.push(...this.widow); }
                 const t1s = this.team1Tricks.reduce((s, c) => s + c.value, 0), t2s = this.team2Tricks.reduce((s, c) => s + c.value, 0);
                 const bidTeamId = this.players.indexOf(this.highBidder), bidTeam = (bidTeamId === 0 || bidTeamId === 2) ? 1 : 2;
@@ -976,26 +1083,30 @@
             }
             
             showRoundSummary() {
-                const scoreBody = document.getElementById('score-pad-body');
-                const total1 = document.getElementById('total-score-1');
-                const total2 = document.getElementById('total-score-2');
+                const lastHand = this.handHistory[this.handHistory.length - 1];
+                if (!lastHand) return;
 
-                scoreBody.innerHTML = '';
+                const t1ScoreEl = document.getElementById('summary-team1-score');
+                const t2ScoreEl = document.getElementById('summary-team2-score');
 
-                this.handHistory.forEach(hand => {
-                    const row = document.createElement('div');
-                    row.className = 'score-pad-row';
-                    const score1 = hand.team1Score;
-                    const score2 = hand.team2Score;
-                    const displayScore1 = (typeof score1 === 'number' && score1 >= 0) ? score1 : `(${score1.toString().replace('-', '')})`;
-                    const displayScore2 = (typeof score2 === 'number' && score2 >= 0) ? score2 : `(${score2.toString().replace('-', '')})`;
-                    row.innerHTML = `<div>${displayScore1}</div><div>${displayScore2}</div>`;
-                    scoreBody.appendChild(row);
-                });
+                const score1 = lastHand.team1Score;
+                t1ScoreEl.textContent = score1;
+                t1ScoreEl.classList.toggle('text-red-500', String(score1).includes('-'));
 
-                total1.textContent = `Total: ${this.scores.team1}`;
-                total2.textContent = `Total: ${this.scores.team2}`;
+                const score2 = lastHand.team2Score;
+                t2ScoreEl.textContent = score2;
+                t2ScoreEl.classList.toggle('text-red-500', String(score2).includes('-'));
+
+                document.getElementById('summary-dealer').textContent = `P${lastHand.dealer + 1}`;
                 
+                const bidderName = (lastHand.highBidder || '').replace(' (D)', '');
+                document.getElementById('summary-high-bid').textContent = `${lastHand.bidAmount} (${bidderName})`;
+
+                document.getElementById('summary-trump').textContent = lastHand.trumpSuit === null ? 'None' : lastHand.trumpSuit || 'N/A';
+                
+                const rookWinnerName = (lastHand.rookWinner || '').replace(' (D)', '');
+                document.getElementById('summary-rook').textContent = rookWinnerName || 'N/A';
+
                 this.showModal('roundSummary');
             }
 
@@ -1070,13 +1181,46 @@
             getHumanTrump() { 
                 return new Promise(resolve => { 
                     this.showModal('trump');
-                    document.getElementById('trump-options').onclick = e => { 
+                    const options = document.getElementById('trump-options');
+                    
+                    const cleanup = () => {
+                        options.onclick = null;
+                        this.hideModal('trump');
+                    };
+
+                    options.onclick = e => { 
                         if (e.target.tagName === 'BUTTON') { 
-                            this.hideModal('trump');
+                            cleanup();
                             resolve(e.target.dataset.suit); 
                         } 
-                    }; 
+                    };
                 }); 
+            }
+
+            getHumanPostBuryChoice() {
+                return new Promise(resolve => {
+                    const actionsContainer = this.dom.postBuryActions;
+                    const callBtn = document.getElementById('action-call-trump');
+                    const askBtn = document.getElementById('action-ask-partner');
+                    const noTrumpBtn = document.getElementById('action-no-trump');
+                    const foldBtn = document.getElementById('action-fold');
+
+                    actionsContainer.classList.remove('hidden');
+
+                    const cleanupAndResolve = (choice) => {
+                        actionsContainer.classList.add('hidden');
+                        callBtn.onclick = null;
+                        askBtn.onclick = null;
+                        noTrumpBtn.onclick = null;
+                        foldBtn.onclick = null;
+                        resolve(choice);
+                    };
+
+                    callBtn.onclick = () => cleanupAndResolve('call');
+                    askBtn.onclick = () => cleanupAndResolve('ask');
+                    noTrumpBtn.onclick = () => cleanupAndResolve('no-trump');
+                    foldBtn.onclick = () => cleanupAndResolve('fold');
+                });
             }
             
             getHumanCardPlay() {
@@ -1131,7 +1275,7 @@
                 const rank = card.rank === 'Rook' ? '🐦' : card.rank;
                 el.innerHTML = `
                     <div class="card-face"><span class="rank">${rank}</span><span class="suit-icon">${rank}</span></div>
-                    <div class="card-back-face"><span>🐦‍⬛</span></div>`;
+                    <div class="card-back-face"><span>🐦</span></div>`;
                 if (!isFaceUp) el.classList.add('is-flipped');
                 return el;
             }
@@ -1201,20 +1345,31 @@
                 this.dom.nestDisplay.innerHTML = '';
             }
             setTrump(suit) {
-                this.trumpSuit = suit; this.players.forEach(p => p.sortHand(this.trumpSuit, this.handSortOrder)); this.renderAllHands();
-                this.currentHandData.trumpSuit = suit;
-                this.updateLiveSummary('trump');
-                this.showMessage(`Trump is ${suit}!`, 2000);
+                this.trumpSuit = suit;
+                this.players.forEach(p => p.sortHand(this.trumpSuit, this.handSortOrder));
+                this.renderAllHands();
+                
                 this.dom.trumpIndicator.classList.remove('hidden');
-                this.dom.trumpIndicator.textContent = suit[0];
-                this.dom.trumpIndicator.style.backgroundColor = `var(--${suit.toLowerCase()}-suit)`;
-                this.dom.trumpIndicator.style.color = (suit === 'Yellow' || suit === 'Green') ? 'black' : 'white';
+                if (suit === null) {
+                    this.currentHandData.trumpSuit = 'None';
+                    this.showMessage(`No Trump! High card wins.`, 2000);
+                    this.dom.trumpIndicator.textContent = 'NT';
+                    this.dom.trumpIndicator.style.backgroundColor = '#6c757d';
+                    this.dom.trumpIndicator.style.color = 'white';
+                } else {
+                    this.currentHandData.trumpSuit = suit;
+                    this.showMessage(`Trump is ${suit}!`, 2000);
+                    this.dom.trumpIndicator.textContent = suit[0];
+                    this.dom.trumpIndicator.style.backgroundColor = `var(--${suit.toLowerCase()}-suit)`;
+                    this.dom.trumpIndicator.style.color = (suit === 'Yellow' || suit === 'Green') ? 'black' : 'white';
+                }
+                this.updateLiveSummary('trump');
             }
             updateScoreboard() {
                 this.dom.gameSummaryBox.innerHTML = `
-                    <div class="total-scores">
-                        <div>Team 1: ${this.scores.team1}</div>
-                        <div>Team 2: ${this.scores.team2}</div>
+                    <div class="total-scores font-bold mb-1">
+                        <div>You/Partner: ${this.scores.team1}</div>
+                        <div>Opponents: ${this.scores.team2}</div>
                     </div>
                     <table class="current-hand-info w-full text-left">
                         <tbody>
@@ -1230,7 +1385,7 @@
                 if (!this.dom.gameSummaryBox.querySelector('#live-dealer')) this.updateScoreboard();
                 if (!field || field === 'dealer') { document.getElementById('live-dealer').textContent = this.currentHandData.dealer != null ? `P${this.currentHandData.dealer + 1}` : '...'; }
                 if (!field || field === 'bid') { document.getElementById('live-bid').textContent = this.currentHandData.bidAmount ? `${this.currentHandData.bidAmount} (${this.currentHandData.highBidder})` : '...'; }
-                if (!field || field === 'trump') { document.getElementById('live-trump').textContent = this.currentHandData.trumpSuit || '...'; }
+                if (!field || field === 'trump') { document.getElementById('live-trump').textContent = this.currentHandData.trumpSuit === null ? 'None' : this.currentHandData.trumpSuit || '...'; }
                 if (!field || field === 'rook') { document.getElementById('live-rook').textContent = this.currentHandData.rookWinner || '...'; }
             }
             sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
