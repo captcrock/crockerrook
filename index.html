@@ -1156,6 +1156,7 @@
         <div id="game-summary-box" class="game-summary-box hidden"></div>
         <button id="see-last-trick-btn" class="utility-btn" disabled>See Last Trick</button>
         <button id="hint-btn" class="utility-btn hint-btn hidden" style="bottom: 15px; right: 15px;">💡 Hint</button>
+        <button id="undo-btn" class="utility-btn hidden" style="bottom: 15px; right: 110px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">↶ Undo</button>
 
         <div id="trump-indicator" class="trump-indicator hidden"></div>
 
@@ -1772,6 +1773,7 @@
                     hintBtn: document.getElementById('hint-btn'),
                     hintModal: document.getElementById('hint-modal'),
                     statsModal: document.getElementById('stats-modal'),
+                    undoBtn: document.getElementById('undo-btn'),
                 };
                 this.players = [new Player(0, true), new Player(1), new Player(2), new Player(3)];
                 this.scores = { team1: 0, team2: 0 };
@@ -1785,6 +1787,7 @@
                 this.initMenu();
                 this.initCardTracker();
                 this.initHints();
+                this.initUndo();
                 this.dom.seeLastTrickBtn.addEventListener('click', () => this.showLastTrick());
             }
 
@@ -1880,6 +1883,33 @@
 
             initHints() {
                 this.dom.hintBtn.addEventListener('click', () => this.showHint());
+            }
+
+            initUndo() {
+                this.dom.undoBtn.addEventListener('click', () => {
+                    if (this.difficulty !== 'practice' || !this.undoState) return;
+
+                    // Restore saved state
+                    const human = this.players[0];
+                    human.hand = [...this.undoState.hand];
+                    this.currentTrick = [...this.undoState.currentTrick];
+
+                    // Re-render
+                    this.renderPlayerHand(0);
+                    this.renderTrick();
+
+                    // Hide undo button
+                    this.dom.undoBtn.classList.add('hidden');
+
+                    // Show message
+                    this.showMessage('Move undone! Choose a different card.', 2000);
+
+                    // Clear undo state so it can't be used again
+                    this.undoState = null;
+
+                    // Allow human to play again
+                    this.resumeAfterUndo = true;
+                });
             }
 
             showHint() {
@@ -2080,11 +2110,21 @@
                         <div class="flex gap-4 justify-center">
                             <button id="view-rules-btn" class="utility-btn bg-blue-500 hover:bg-blue-600 mt-4">View Rules</button>
                             <button id="view-strategy-btn" class="utility-btn bg-green-500 hover:bg-green-600 mt-4">Learn</button>
+                            <button data-difficulty="practice" class="utility-btn bg-purple-500 hover:bg-purple-600 mt-4">Practice</button>
                         </div>
                     </div>`);
                 this.dom.biddingModal.innerHTML = this.createModalContent('Your Bid', `
                     <div class="bidding-section-label">The Nest (5 cards)</div>
                     <div id="bidding-nest-display"></div>
+
+                    <div id="hand-strength-indicator" class="hidden mt-4 p-3 rounded-lg border-2 text-center">
+                        <div class="text-sm font-semibold mb-1">Hand Strength</div>
+                        <div id="strength-bar-container" class="w-full h-6 bg-gray-700 rounded-full overflow-hidden mb-2">
+                            <div id="strength-bar" class="h-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                        <div id="strength-label" class="text-lg font-bold"></div>
+                        <div id="strength-suggestion" class="text-xs mt-1 text-gray-300"></div>
+                    </div>
 
                     <p class="mb-2 mt-4">Current Bid: <span id="current-bid-display"></span></p>
                     <div id="bid-options" class="flex items-center justify-center">
@@ -2198,7 +2238,7 @@
                 this.dom.difficultyModal.addEventListener('click', e => {
                     if (e.target.dataset.difficulty) {
                         this.difficulty = e.target.dataset.difficulty;
-                        // Hide card tracker on hard mode, show on easy/medium
+                        // Hide card tracker on hard mode, show on easy/medium/practice
                         if (this.difficulty === 'hard') {
                             this.dom.cardTracker.classList.add('hidden-hard');
                         } else {
@@ -2427,13 +2467,31 @@
                     this.dom.infos[pIndex].classList.add('font-bold', 'text-yellow-300');
                     let playedCard;
                     if (player.isHuman) {
-                        // Show hint button for easy/medium difficulty
+                        // Save state for undo (practice mode only)
+                        if (this.difficulty === 'practice') {
+                            this.undoState = {
+                                hand: [...player.hand],
+                                currentTrick: [...this.currentTrick],
+                                trickLeaderIndex: this.trickLeaderIndex,
+                                loopIndex: i
+                            };
+                        }
+
+                        // Show hint button for easy/medium/practice difficulty
                         if (this.difficulty !== 'hard') {
                             this.dom.hintBtn.classList.remove('hidden');
                         }
                         playedCard = await this.getHumanCardPlay();
                         this.dom.hintBtn.classList.add('hidden');
+
+                        // Show undo button after human plays (practice mode only, not last card in trick)
+                        if (this.difficulty === 'practice' && i < 3) {
+                            this.dom.undoBtn.classList.remove('hidden');
+                        }
                     } else {
+                        // Hide undo button when AI plays (they've committed their play)
+                        this.dom.undoBtn.classList.add('hidden');
+
                         await this.sleep(1000);
                         if (this.difficulty === 'hard') {
                             const gameState = {
@@ -2464,6 +2522,10 @@
                 this.trickHistory.push(this.lastTrick);
                 this.updateCardTracker(); // Update tracker after each trick
                 this.dom.seeLastTrickBtn.disabled = false;
+
+                // Hide undo button after trick completes
+                this.dom.undoBtn.classList.add('hidden');
+                this.undoState = null;
 
                 // Enhanced feedback message
                 const captured = this.currentTrick.map(p => p.card);
@@ -2666,6 +2728,82 @@
                 this.showModal('lastTrick');
             }
 
+            showHandStrength(player) {
+                const indicator = document.getElementById('hand-strength-indicator');
+                const strengthBar = document.getElementById('strength-bar');
+                const strengthLabel = document.getElementById('strength-label');
+                const strengthSuggestion = document.getElementById('strength-suggestion');
+
+                // Calculate hand value using simplified bidding logic
+                let handValue = 0;
+
+                const hasRook = player.hand.some(c => c.rank === 'Rook');
+                handValue += hasRook ? 20 : 0;
+
+                const ones = player.hand.filter(c => c.rank === 1);
+                handValue += ones.length * 15;
+
+                const fourteens = player.hand.filter(c => c.rank === 14);
+                handValue += fourteens.length * 10;
+
+                const tens = player.hand.filter(c => c.rank === 10);
+                handValue += tens.length * 8;
+
+                const fives = player.hand.filter(c => c.rank === 5);
+                handValue += fives.length * 5;
+
+                // Analyze suit distribution
+                const suitCounts = SUITS.reduce((acc, suit) => {
+                    acc[suit] = player.hand.filter(c => c.suit === suit).length;
+                    return acc;
+                }, {});
+
+                const maxSuitLength = Math.max(...Object.values(suitCounts));
+                handValue += maxSuitLength * 5;
+
+                // Nest expectation
+                handValue += 8;
+
+                // Determine strength category
+                let category, color, percentage, suggestedBid;
+
+                if (handValue < 60) {
+                    category = 'Weak';
+                    color = '#ef4444'; // red
+                    percentage = 20;
+                    suggestedBid = 'Consider passing unless partner shows strength';
+                } else if (handValue < 75) {
+                    category = 'Fair';
+                    color = '#f59e0b'; // orange
+                    percentage = 40;
+                    suggestedBid = 'Bid cautiously: 90-105';
+                } else if (handValue < 90) {
+                    category = 'Good';
+                    color = '#eab308'; // yellow
+                    percentage = 60;
+                    suggestedBid = 'Reasonable bid: 105-125';
+                } else if (handValue < 110) {
+                    category = 'Strong';
+                    color = '#84cc16'; // lime
+                    percentage = 80;
+                    suggestedBid = 'Strong bid: 125-145';
+                } else {
+                    category = 'Excellent';
+                    color = '#22c55e'; // green
+                    percentage = 100;
+                    suggestedBid = 'Very strong: 145-165 or higher';
+                }
+
+                // Display the indicator
+                indicator.classList.remove('hidden');
+                indicator.style.borderColor = color;
+                strengthBar.style.width = percentage + '%';
+                strengthBar.style.backgroundColor = color;
+                strengthLabel.textContent = category;
+                strengthLabel.style.color = color;
+                strengthSuggestion.textContent = suggestedBid;
+            }
+
             getHumanBid(hasShootOpt) {
                 return new Promise(resolve => {
                     const input = document.getElementById('bid-input'), display = document.getElementById('current-bid-display'), submitBtn = document.getElementById('submit-bid-button'), passBtn = document.getElementById('pass-button'), shootBtn = document.getElementById('shoot-moon-button');
@@ -2706,6 +2844,11 @@
                         cardEl.style.zIndex = i;
                         nestDisplay.appendChild(cardEl);
                     });
+
+                    // Show hand strength indicator for practice mode only
+                    if (this.difficulty === 'practice') {
+                        this.showHandStrength(humanPlayer);
+                    }
 
                     this.showModal('bidding');
                 });
