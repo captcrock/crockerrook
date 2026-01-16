@@ -1352,6 +1352,25 @@
                 if (potentialBid > currentBid) {
                     return potentialBid;
                 }
+
+                // Competitive bidding: Push opponents' bids higher
+                // Don't do this if partner is high bidder
+                if (!isPartnerHighBidder && highBidder && currentBid < 130) {
+                    // Consider competitive bidding if the bid is still relatively low
+                    const minStrengthForCompetitive = currentBid < 105 ? 30 : 40;
+
+                    if (bidStrength >= minStrengthForCompetitive) {
+                        // Push the bid up slightly to make opponent pay more
+                        const pushAmount = currentBid < 105 ? 10 : 5;
+                        const competitiveBid = currentBid + pushAmount;
+
+                        // Don't push too far beyond our potential bid
+                        if (competitiveBid <= potentialBid + 10) {
+                            return competitiveBid;
+                        }
+                    }
+                }
+
                 return 'pass';
             }
 
@@ -1511,6 +1530,25 @@
                     // Conservative bidding: smaller jumps
                     const jumpSize = Math.min(15, potentialBid - currentBid);
                     return currentBid + jumpSize;
+                }
+
+                // Competitive bidding: Push opponents' bids higher
+                // Don't do this if partner is high bidder
+                if (!isPartnerHighBidder && highBidder && currentBid < 140) {
+                    // Consider competitive bidding if the bid is still relatively low
+                    const minHandForCompetitive = currentBid < 110 ? 40 : 55;
+
+                    if (handValue >= minHandForCompetitive) {
+                        // Push the bid up slightly to make opponent pay more
+                        // More aggressive pushes when bid is lower
+                        const pushAmount = currentBid < 110 ? 10 : 5;
+                        const competitiveBid = currentBid + pushAmount;
+
+                        // Don't push beyond what we think we could reasonably make
+                        if (competitiveBid <= potentialBid + 15) {
+                            return competitiveBid;
+                        }
+                    }
                 }
 
                 return 'pass';
