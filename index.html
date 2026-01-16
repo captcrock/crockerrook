@@ -1331,8 +1331,8 @@
                 // Point card values with adjusted valuations
                 const hasRook = this.hand.filter(c => c.rank === 'Rook').length > 0;
                 handValue += hasRook ? 20 : 0;
-                const aces = this.hand.filter(c => c.rank === 1);
-                handValue += aces.length * 15;
+                const ones = this.hand.filter(c => c.rank === 1);
+                handValue += ones.length * 15;
                 const fourteens = this.hand.filter(c => c.rank === 14);
                 handValue += fourteens.length * 10;
                 const tens = this.hand.filter(c => c.rank === 10);
@@ -1358,7 +1358,7 @@
                 // Suit quality bonus (for potential trump)
                 if (bestTrumpLength >= 6) {
                     const trumpCards = this.hand.filter(c => c.suit === bestTrumpSuit);
-                    const highTrumps = trumpCards.filter(c => c.power >= 13).length; // Ace, 14, 13
+                    const highTrumps = trumpCards.filter(c => c.power >= 13).length; // 1, 14, 13
                     handValue += bestTrumpLength * 6; // Reduced from 8
                     handValue += highTrumps * 8; // Reduced from 10
 
@@ -1387,7 +1387,7 @@
                 handValue += nestExpectation;
 
                 // Check for "shoot the moon" hand - stricter requirements
-                const quickTricks = (hasRook ? 1 : 0) + aces.length;
+                const quickTricks = (hasRook ? 1 : 0) + ones.length;
                 const controlSuits = Object.values(suitCounts).filter(count => count >= 5).length;
                 if (handValue > 150 && quickTricks >= 4 && controlSuits >= 2 && bestTrumpLength >= 7 && hasShootTheMoonOption) {
                     return 'shoot';
@@ -1400,23 +1400,23 @@
 
                 // Strict requirements for high bids
                 if (potentialBid >= 170) {
-                    // Must have exceptional hand: Rook + 3+ Aces OR Rook + 2 Aces + 8+ trump
-                    const exceptionalHand = (hasRook && aces.length >= 3) ||
-                                          (hasRook && aces.length >= 2 && bestTrumpLength >= 8) ||
-                                          (aces.length >= 4 && bestTrumpLength >= 7);
+                    // Must have exceptional hand: Rook + 3+ 1s OR Rook + 2 1s + 8+ trump
+                    const exceptionalHand = (hasRook && ones.length >= 3) ||
+                                          (hasRook && ones.length >= 2 && bestTrumpLength >= 8) ||
+                                          (ones.length >= 4 && bestTrumpLength >= 7);
                     if (!exceptionalHand) {
                         potentialBid = Math.min(potentialBid, 165);
                     }
                 } else if (potentialBid >= 160) {
-                    // Must have very strong hand: Rook + 2+ Aces OR 3+ Aces + 7+ trump
-                    const veryStrongHand = (hasRook && aces.length >= 2) ||
-                                         (aces.length >= 3 && bestTrumpLength >= 7);
+                    // Must have very strong hand: Rook + 2+ 1s OR 3+ 1s + 7+ trump
+                    const veryStrongHand = (hasRook && ones.length >= 2) ||
+                                         (ones.length >= 3 && bestTrumpLength >= 7);
                     if (!veryStrongHand) {
                         potentialBid = Math.min(potentialBid, 155);
                     }
                 } else if (potentialBid >= 150) {
-                    // Must have strong hand: Rook OR 2+ Aces + good trump
-                    const strongHand = hasRook || (aces.length >= 2 && bestTrumpLength >= 6);
+                    // Must have strong hand: Rook OR 2+ 1s + good trump
+                    const strongHand = hasRook || (ones.length >= 2 && bestTrumpLength >= 6);
                     if (!strongHand) {
                         potentialBid = Math.min(potentialBid, 145);
                     }
@@ -2945,7 +2945,7 @@
             updateScoreboard() {
                 const formatScore = (score) => {
                     if (score < 0) {
-                        return `${Math.abs(score)} (in the hole)`;
+                        return `${score} (in the hole)`;
                     }
                     return score;
                 };
