@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover">
     <title>Crocker Rook</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0f172a">
@@ -940,13 +940,56 @@
             z-index: 210;
             background: var(--glass-bg);
             backdrop-filter: blur(20px);
-            padding: 8px;
+            padding: 6px;
             border-radius: 8px;
             border: 1px solid var(--glass-border);
-            font-size: clamp(8px, 1.5vw, 10px);
-            width: clamp(175px, 35vw, 212px);
+            font-size: clamp(7px, 1.3vw, 9px);
+            width: clamp(140px, 28vw, 170px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            touch-action: none;
+            cursor: move;
+        }
+        .game-summary-box.collapsed {
+            width: auto;
+            padding: 4px 8px;
+        }
+        .game-summary-box.collapsed .game-summary-content {
+            display: none;
+        }
+        .game-summary-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        .game-summary-header.collapsed-only {
+            margin-bottom: 0;
+        }
+        .collapse-toggle {
+            background: rgba(251, 191, 36, 0.2);
+            border: 1px solid rgba(251, 191, 36, 0.4);
+            color: var(--yellow-suit);
+            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 700;
+            transition: all 0.2s;
+            line-height: 1;
+        }
+        .collapse-toggle:hover {
+            background: rgba(251, 191, 36, 0.3);
+            transform: scale(1.05);
+        }
+        .collapsed-info {
+            display: none;
+            font-weight: 700;
+            color: var(--yellow-suit);
+            font-size: 1.1em;
+        }
+        .game-summary-box.collapsed .collapsed-info {
+            display: inline;
         }
         .game-summary-box .total-scores {
             display: flex;
@@ -1000,12 +1043,16 @@
                  left: 15px;
              }
              .game-summary-box {
-                 top: 10px;
-                 left: 10px;
-                 padding: 6px;
-                 width: clamp(150px, 31vw, 187px);
-                 font-size: clamp(7px, 1.2vw, 9px);
+                 top: 8px;
+                 left: 8px;
+                 padding: 4px;
+                 width: clamp(120px, 25vw, 150px);
+                 font-size: clamp(6px, 1.1vw, 8px);
                  border-radius: 6px;
+             }
+             .collapse-toggle {
+                 font-size: 10px;
+                 padding: 2px 5px;
              }
              .game-summary-box .total-scores {
                  margin-bottom: 3px;
@@ -1279,17 +1326,51 @@
                 });
             }
 
-            getBid(currentBid, hasShootTheMoonOption, difficulty) {
+            getBid(currentBid, hasShootTheMoonOption, difficulty, highBidder, previousBid) {
+                // Partner awareness: Check if partner made a large bid increase
+                const isPartnerHighBidder = highBidder && highBidder.id === this.partnerId;
+                const partnerBidIncrease = previousBid ? (currentBid - previousBid) : 0;
+                const partnerMadeLargeIncrease = isPartnerHighBidder && partnerBidIncrease > 15;
+
                 // Simple AI for bidding
                 const pointCards = this.hand.filter(c => c.value > 5).length;
                 const rook = this.hand.some(c => c.rank === 'Rook');
+                const ones = this.hand.filter(c => c.rank === 1).length;
                 let bidStrength = pointCards * 10 + (rook ? 20 : 0);
 
                 const potentialBid = 85 + Math.floor(bidStrength / 5) * 5;
 
+                // Don't overbid partner unless we have a very strong hand
+                if (partnerMadeLargeIncrease) {
+                    // Need Rook + 2+ Aces or 3+ Aces to overbid partner
+                    const veryStrongHand = (rook && ones >= 2) || (ones >= 3);
+                    if (!veryStrongHand) {
+                        return 'pass';
+                    }
+                }
+
                 if (potentialBid > currentBid) {
                     return potentialBid;
                 }
+
+                // Competitive bidding: Push opponents' bids higher
+                // Don't do this if partner is high bidder
+                if (!isPartnerHighBidder && highBidder && currentBid < 130) {
+                    // Consider competitive bidding if the bid is still relatively low
+                    const minStrengthForCompetitive = currentBid < 105 ? 30 : 40;
+
+                    if (bidStrength >= minStrengthForCompetitive) {
+                        // Push the bid up slightly to make opponent pay more
+                        const pushAmount = currentBid < 105 ? 10 : 5;
+                        const competitiveBid = currentBid + pushAmount;
+
+                        // Don't push too far beyond our potential bid
+                        if (competitiveBid <= potentialBid + 10) {
+                            return competitiveBid;
+                        }
+                    }
+                }
+
                 return 'pass';
             }
 
@@ -1325,7 +1406,12 @@
                 return bestSuit || SUITS[Math.floor(Math.random() * SUITS.length)]; // Fallback
             }
 
-            getAdvancedBid(currentBid, hasShootTheMoonOption) {
+            getAdvancedBid(currentBid, hasShootTheMoonOption, highBidder, previousBid) {
+                // Partner awareness: Check if partner made a large bid increase
+                const isPartnerHighBidder = highBidder && highBidder.id === this.partnerId;
+                const partnerBidIncrease = previousBid ? (currentBid - previousBid) : 0;
+                const partnerMadeLargeIncrease = isPartnerHighBidder && partnerBidIncrease > 15;
+
                 let handValue = 0;
 
                 // Point card values with adjusted valuations
@@ -1422,11 +1508,47 @@
                     }
                 }
 
+                // Partner awareness: Don't overbid partner unless we have a near-180 hand
+                if (partnerMadeLargeIncrease) {
+                    // Partner signaled a very strong hand - only overbid if we can likely make 180
+                    const exceptionalHand180 = (hasRook && ones.length >= 3) ||
+                                               (hasRook && ones.length >= 2 && bestTrumpLength >= 8) ||
+                                               (ones.length >= 4 && bestTrumpLength >= 7);
+
+                    if (!exceptionalHand180) {
+                        // Partner has a strong hand, let them have it
+                        return 'pass';
+                    }
+                    // Only bid if we can reasonably go to 180
+                    if (potentialBid < 175) {
+                        return 'pass';
+                    }
+                }
+
                 // Bidding strategy
                 if (potentialBid > currentBid && potentialBid >= 90) {
                     // Conservative bidding: smaller jumps
                     const jumpSize = Math.min(15, potentialBid - currentBid);
                     return currentBid + jumpSize;
+                }
+
+                // Competitive bidding: Push opponents' bids higher
+                // Don't do this if partner is high bidder
+                if (!isPartnerHighBidder && highBidder && currentBid < 140) {
+                    // Consider competitive bidding if the bid is still relatively low
+                    const minHandForCompetitive = currentBid < 110 ? 40 : 55;
+
+                    if (handValue >= minHandForCompetitive) {
+                        // Push the bid up slightly to make opponent pay more
+                        // More aggressive pushes when bid is lower
+                        const pushAmount = currentBid < 110 ? 10 : 5;
+                        const competitiveBid = currentBid + pushAmount;
+
+                        // Don't push beyond what we think we could reasonably make
+                        if (competitiveBid <= potentialBid + 15) {
+                            return competitiveBid;
+                        }
+                    }
                 }
 
                 return 'pass';
@@ -1785,6 +1907,7 @@
                 this.initMenu();
                 this.initCardTracker();
                 this.initHints();
+                this.initSummaryDrag();
                 this.dom.seeLastTrickBtn.addEventListener('click', () => this.showLastTrick());
             }
 
@@ -2314,6 +2437,7 @@
             
             async startBidding() {
                 this.highBid = 85; this.highBidder = null;
+                this.previousBid = 85; // Track previous bid for partner logic
                 this.players.forEach(p => p.hasPassed = false);
                 this.bidTurnIndex = (this.dealerIndex + 1) % 4;
                 this.biddingRound = 0;
@@ -2324,22 +2448,22 @@
                     this.dom.infos[this.bidTurnIndex].classList.add('font-bold', 'text-yellow-300');
                     const hasShootOpt = this.biddingRound < 4;
                     let bid;
-                    if (player.isHuman) { 
-                        bid = await this.getHumanBid(hasShootOpt); 
-                    } else { 
-                        await this.sleep(1500); 
+                    if (player.isHuman) {
+                        bid = await this.getHumanBid(hasShootOpt);
+                    } else {
+                        await this.sleep(1500);
                         if (this.difficulty === 'hard') {
-                            bid = player.getAdvancedBid(this.highBid, hasShootOpt);
+                            bid = player.getAdvancedBid(this.highBid, hasShootOpt, this.highBidder, this.previousBid);
                         } else {
-                            bid = player.getBid(this.highBid, hasShootOpt, this.difficulty);
+                            bid = player.getBid(this.highBid, hasShootOpt, this.difficulty, this.highBidder, this.previousBid);
                         }
-                        this.showMessage(`${this.dom.infos[player.id].textContent} bids ${bid}`, 1400); 
+                        this.showMessage(`${this.dom.infos[player.id].textContent} bids ${bid}`, 1400);
                     }
-                    
+
                     this.dom.infos.forEach(info => info.classList.remove('high-bidder'));
-                    if (bid === 'shoot') { this.highBid = 'shoot'; this.highBidder = player; this.dom.infos[this.players.indexOf(this.highBidder)].classList.add('high-bidder'); break; }
+                    if (bid === 'shoot') { this.previousBid = this.highBid; this.highBid = 'shoot'; this.highBidder = player; this.dom.infos[this.players.indexOf(this.highBidder)].classList.add('high-bidder'); break; }
                     else if (bid === 'pass') { player.hasPassed = true; }
-                    else { this.highBid = bid; this.highBidder = player; this.dom.infos[this.players.indexOf(this.highBidder)].classList.add('high-bidder');}
+                    else { this.previousBid = this.highBid; this.highBid = bid; this.highBidder = player; this.dom.infos[this.players.indexOf(this.highBidder)].classList.add('high-bidder');}
                     this.bidTurnIndex = (this.bidTurnIndex + 1) % 4; this.biddingRound++;
                 }
                 if (!this.highBidder) { this.highBidder = this.players.find(p => !p.hasPassed) || this.players[this.dealerIndex]; this.highBid = this.highBidder ? this.highBid : 90; if(!this.highBidder) this.highBidder = this.players[this.dealerIndex]; this.dom.infos[this.players.indexOf(this.highBidder)].classList.add('high-bidder'); }
@@ -2951,18 +3075,24 @@
                 };
 
                 this.dom.gameSummaryBox.innerHTML = `
-                    <div class="total-scores font-bold mb-1">
-                        <div>You/Partner: ${formatScore(this.scores.team1)}</div>
-                        <div>Opponents: ${formatScore(this.scores.team2)}</div>
+                    <div class="game-summary-header">
+                        <span class="collapsed-info">${this.scores.team1} - ${this.scores.team2}</span>
+                        <button class="collapse-toggle" onclick="game.toggleSummaryCollapse()">−</button>
                     </div>
-                    <table class="current-hand-info w-full text-left">
-                        <tbody>
-                            <tr><td>Dealer:</td><td><span id="live-dealer">...</span></td></tr>
-                            <tr><td>High Bid:</td><td><span id="live-bid">...</span></td></tr>
-                            <tr><td>Trump:</td><td><span id="live-trump">...</span></td></tr>
-                            <tr><td>Rook:</td><td><span id="live-rook">...</span></td></tr>
-                        </tbody>
-                    </table>`;
+                    <div class="game-summary-content">
+                        <div class="total-scores font-bold mb-1">
+                            <div>You/Partner: ${formatScore(this.scores.team1)}</div>
+                            <div>Opponents: ${formatScore(this.scores.team2)}</div>
+                        </div>
+                        <table class="current-hand-info w-full text-left">
+                            <tbody>
+                                <tr><td>Dealer:</td><td><span id="live-dealer">...</span></td></tr>
+                                <tr><td>High Bid:</td><td><span id="live-bid">...</span></td></tr>
+                                <tr><td>Trump:</td><td><span id="live-trump">...</span></td></tr>
+                                <tr><td>Rook:</td><td><span id="live-rook">...</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>`;
             }
             showMessage(msg, duration) { this.dom.statusMessage.textContent = msg; this.dom.statusMessage.classList.remove('hidden'); setTimeout(() => this.dom.statusMessage.classList.add('hidden'), duration); }
             updateLiveSummary(field) {
@@ -2975,6 +3105,78 @@
                 if (!field || field === 'trump') { document.getElementById('live-trump').textContent = this.currentHandData.trumpSuit === null ? 'None' : this.currentHandData.trumpSuit || '...'; }
                 if (!field || field === 'rook') { document.getElementById('live-rook').textContent = this.currentHandData.rookWinner || '...'; }
             }
+            toggleSummaryCollapse() {
+                const box = this.dom.gameSummaryBox;
+                const toggle = box.querySelector('.collapse-toggle');
+                const header = box.querySelector('.game-summary-header');
+
+                if (box.classList.contains('collapsed')) {
+                    box.classList.remove('collapsed');
+                    toggle.textContent = '−';
+                    header.classList.remove('collapsed-only');
+                } else {
+                    box.classList.add('collapsed');
+                    toggle.textContent = '+';
+                    header.classList.add('collapsed-only');
+                }
+            }
+
+            initSummaryDrag() {
+                const box = this.dom.gameSummaryBox;
+                let isDragging = false;
+                let startX, startY, initialX, initialY;
+
+                const handleStart = (e) => {
+                    const target = e.target;
+                    if (target.classList.contains('collapse-toggle')) return;
+
+                    isDragging = true;
+                    const touch = e.touches ? e.touches[0] : e;
+                    startX = touch.clientX;
+                    startY = touch.clientY;
+
+                    const rect = box.getBoundingClientRect();
+                    initialX = rect.left;
+                    initialY = rect.top;
+
+                    box.style.transition = 'none';
+                    e.preventDefault();
+                };
+
+                const handleMove = (e) => {
+                    if (!isDragging) return;
+
+                    const touch = e.touches ? e.touches[0] : e;
+                    const deltaX = touch.clientX - startX;
+                    const deltaY = touch.clientY - startY;
+
+                    const newX = initialX + deltaX;
+                    const newY = initialY + deltaY;
+
+                    const maxX = window.innerWidth - box.offsetWidth;
+                    const maxY = window.innerHeight - box.offsetHeight;
+
+                    box.style.left = Math.max(0, Math.min(newX, maxX)) + 'px';
+                    box.style.top = Math.max(0, Math.min(newY, maxY)) + 'px';
+
+                    e.preventDefault();
+                };
+
+                const handleEnd = () => {
+                    if (isDragging) {
+                        isDragging = false;
+                        box.style.transition = '';
+                    }
+                };
+
+                box.addEventListener('mousedown', handleStart);
+                box.addEventListener('touchstart', handleStart, { passive: false });
+                document.addEventListener('mousemove', handleMove);
+                document.addEventListener('touchmove', handleMove, { passive: false });
+                document.addEventListener('mouseup', handleEnd);
+                document.addEventListener('touchend', handleEnd);
+            }
+
             sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
         }
 
