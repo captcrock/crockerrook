@@ -58,21 +58,84 @@
         }
 
         @media (orientation: portrait) {
-            body::before {
-                content: 'Please rotate your device to landscape.';
-                position: fixed;
-                top: 0; left: 0; right: 0; bottom: 0;
-                background: rgba(15, 23, 42, 0.98);
-                color: #fff;
-                z-index: 9999;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 2.2em;
-                text-align: center;
-                padding: 2em;
+            /* Portrait mode layout - vertical stack */
+            .player-area {
+                position: fixed !important;
+                width: 100% !important;
+                height: auto !important;
+                transform: none !important;
             }
-            .game-container { display: none !important; }
+
+            .player-top {
+                top: 5% !important;
+                left: 0 !important;
+                right: 0 !important;
+            }
+
+            .player-bottom {
+                bottom: 5% !important;
+                left: 0 !important;
+                right: 0 !important;
+            }
+
+            .player-left {
+                top: 30% !important;
+                left: 0 !important;
+                right: 0 !important;
+            }
+
+            .player-right {
+                top: 50% !important;
+                left: 0 !important;
+                right: 0 !important;
+            }
+
+            .game-board {
+                top: 35% !important;
+                left: 50% !important;
+                transform: translate(-50%, -50%) scale(0.9) !important;
+            }
+
+            .card {
+                min-width: 50px !important;
+                min-height: 70px !important;
+                font-size: 12px !important;
+            }
+
+            #player-0-hand .card {
+                min-width: 60px !important;
+                min-height: 85px !important;
+            }
+
+            .trump-indicator {
+                top: 45% !important;
+                right: 10px !important;
+            }
+
+            .card-tracker {
+                max-width: 200px !important;
+                top: 60% !important;
+                right: 5px !important;
+            }
+
+            #see-last-trick-btn {
+                bottom: 10px !important;
+                left: 10px !important;
+                padding: 8px 12px !important;
+                font-size: 11px !important;
+            }
+
+            .hint-btn {
+                bottom: 10px !important;
+                right: 10px !important;
+                padding: 8px 12px !important;
+                font-size: 11px !important;
+            }
+
+            .game-summary-box {
+                font-size: 8px !important;
+                width: 140px !important;
+            }
         }
 
         .game-container {
@@ -772,6 +835,48 @@
             z-index: 210;
         }
 
+        .hint-btn {
+            position: fixed;
+            z-index: 210;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+            animation: pulse-hint 2s infinite;
+        }
+
+        @keyframes pulse-hint {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+            50% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+        }
+
+        .hint-message {
+            background: rgba(245, 158, 11, 0.95);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(251, 191, 36, 0.8);
+            border-radius: 12px;
+            padding: 15px 20px;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 300;
+            max-width: 400px;
+            color: white;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        .hint-message .hint-card {
+            font-size: 1.2em;
+            font-weight: 700;
+            margin: 10px 0;
+            color: #fef3c7;
+        }
+
+        .hint-message .hint-reason {
+            font-size: 0.95em;
+            line-height: 1.5;
+            margin-top: 10px;
+            color: #fef9e7;
+        }
+
         .game-summary-box {
             position: fixed;
             top: 15px;
@@ -989,6 +1094,7 @@
     <div class="game-container">
         <div id="game-summary-box" class="game-summary-box hidden"></div>
         <button id="see-last-trick-btn" class="utility-btn" disabled>See Last Trick</button>
+        <button id="hint-btn" class="utility-btn hint-btn hidden" style="bottom: 15px; right: 15px;">💡 Hint</button>
 
         <div id="trump-indicator" class="trump-indicator hidden"></div>
 
@@ -1016,6 +1122,7 @@
             <div id="dropdown-menu" class="dropdown-menu">
                 <button id="menu-new-game" class="dropdown-item">New Game</button>
                 <button id="menu-settings" class="dropdown-item">Settings</button>
+                <button id="menu-stats" class="dropdown-item">Statistics</button>
                 <button id="menu-exit" class="dropdown-item">Exit</button>
             </div>
         </div>
@@ -1056,6 +1163,8 @@
         <div id="settings-modal" class="modal"></div>
         <div id="rules-modal" class="modal"></div>
         <div id="strategy-modal" class="modal"></div>
+        <div id="hint-modal" class="modal"></div>
+        <div id="stats-modal" class="modal"></div>
     </div>
 
     <script>
@@ -1571,12 +1680,16 @@
                     dropdownMenu: document.getElementById('dropdown-menu'),
                     menuNewGame: document.getElementById('menu-new-game'),
                     menuSettings: document.getElementById('menu-settings'),
+                    menuStats: document.getElementById('menu-stats'),
                     menuExit: document.getElementById('menu-exit'),
                     cardTracker: document.getElementById('card-tracker'),
                     cardTrackerToggle: document.getElementById('card-tracker-toggle'),
                     trackerSuits: document.getElementById('tracker-suits'),
                     trackerTrumpCount: document.getElementById('tracker-trump-count'),
                     trackerPointsLeft: document.getElementById('tracker-points-left'),
+                    hintBtn: document.getElementById('hint-btn'),
+                    hintModal: document.getElementById('hint-modal'),
+                    statsModal: document.getElementById('stats-modal'),
                 };
                 this.players = [new Player(0, true), new Player(1), new Player(2), new Player(3)];
                 this.scores = { team1: 0, team2: 0 };
@@ -1585,9 +1698,11 @@
                 this.lastTrick = [];
                 this.trickHistory = [];
                 this.handSortOrder = 'asc';
+                this.stats = this.loadStats();
                 this.initModals();
                 this.initMenu();
                 this.initCardTracker();
+                this.initHints();
                 this.dom.seeLastTrickBtn.addEventListener('click', () => this.showLastTrick());
             }
 
@@ -1602,6 +1717,10 @@
                 this.dom.menuSettings.addEventListener('click', () => {
                     this.dom.dropdownMenu.classList.remove('show');
                     this.showModal('settings');
+                });
+                this.dom.menuStats.addEventListener('click', () => {
+                    this.dom.dropdownMenu.classList.remove('show');
+                    this.showStats();
                 });
                 this.dom.menuExit.addEventListener('click', () => {
                     this.dom.dropdownMenu.classList.remove('show');
@@ -1675,6 +1794,197 @@
                 const pointsPlayed = playedCards.reduce((sum, c) => sum + c.value, 0);
                 const pointsLeft = 180 - pointsPlayed;
                 this.dom.trackerPointsLeft.textContent = pointsLeft;
+            }
+
+            initHints() {
+                this.dom.hintBtn.addEventListener('click', () => this.showHint());
+            }
+
+            showHint() {
+                if (!this.currentTrick || this.difficulty === 'hard') return;
+
+                const humanPlayer = this.players[0];
+                const gameState = {
+                    scores: this.scores,
+                    highBid: this.highBid,
+                    highBidderId: this.highBidder.id,
+                    team1Tricks: this.team1Tricks,
+                    team2Tricks: this.team2Tricks,
+                    widowValue: this.widow.reduce((sum, c) => sum + c.value, 0)
+                };
+
+                // Use AI logic to get best card
+                const suggestedCard = humanPlayer.playAdvancedCard(
+                    this.currentTrick,
+                    this.trumpSuit,
+                    this.trickHistory,
+                    gameState
+                );
+
+                const reason = this.explainCardChoice(suggestedCard, humanPlayer, this.currentTrick, this.trumpSuit);
+
+                // Display hint modal
+                const cardDisplay = suggestedCard.rank === 'Rook' ? 'Rook' :
+                    `${suggestedCard.suit} ${suggestedCard.rank === 1 ? 'Ace' : suggestedCard.rank}`;
+
+                this.dom.hintModal.innerHTML = this.createModalContent('💡 Hint', `
+                    <div class="hint-message">
+                        <div class="hint-card">Suggested Play: ${cardDisplay}</div>
+                        <div class="hint-reason">${reason}</div>
+                        <button id="got-it-btn" class="mt-4 utility-btn">Got it!</button>
+                    </div>
+                `);
+
+                this.showModal('hint');
+                document.getElementById('got-it-btn').addEventListener('click', () => {
+                    this.closeModal('hint');
+                });
+            }
+
+            explainCardChoice(card, player, trick, trumpSuit) {
+                const trickCards = trick.map(p => p.card);
+                const playableCards = player.getPlayableCards(trickCards, trumpSuit);
+
+                // Leading the trick
+                if (trick.length === 0) {
+                    if (card.rank === 'Rook' || card.suit === trumpSuit) {
+                        return "Lead with trump to pull opponent's trump cards and establish control.";
+                    }
+                    const suitCounts = SUITS.reduce((acc, s) => ({...acc, [s]: player.hand.filter(c => c.suit === s).length}), {});
+                    if (suitCounts[card.suit] === 1) {
+                        return "Lead your singleton to create a void, allowing you to trump this suit later.";
+                    }
+                    return "Lead low from this suit to preserve higher cards for later.";
+                }
+
+                // Following suit
+                const winnerInfo = this.determineTrickWinner(trick);
+                const partnerIsWinning = winnerInfo && winnerInfo.player.id === player.partnerId;
+
+                if (partnerIsWinning) {
+                    if (card.value > 0) {
+                        return `Partner is winning! "Smear" your ${card.value}-point card to help your team score.`;
+                    }
+                    return "Partner is winning. Play your lowest card to save better cards for later.";
+                }
+
+                // Try to win
+                const trickValue = trickCards.reduce((sum, c) => sum + c.value, 0);
+                const canWin = card.rank === 'Rook' ||
+                    (trumpSuit && card.suit === trumpSuit && (!winnerInfo.card.suit === trumpSuit || card.power > winnerInfo.card.power));
+
+                if (canWin) {
+                    if (trickValue >= 15) {
+                        return `Take this valuable trick (${trickValue} points) with your ${card.rank === 'Rook' ? 'Rook' : card.suit + ' ' + card.rank}.`;
+                    }
+                    return "Win this trick cheaply with your lowest winning card.";
+                }
+
+                if (card.value > 0 && trickValue >= 10) {
+                    return `You can't win, but smear your ${card.value}-point card since opponents are taking points anyway.`;
+                }
+
+                return "You can't win this trick. Play your lowest card to save better cards.";
+            }
+
+            loadStats() {
+                const saved = localStorage.getItem('rookGameStats');
+                if (saved) {
+                    return JSON.parse(saved);
+                }
+                return {
+                    gamesPlayed: 0,
+                    gamesWon: 0,
+                    totalBids: 0,
+                    successfulBids: 0,
+                    shootTheMoonAttempts: 0,
+                    shootTheMoonSuccesses: 0,
+                    highestScore: 0,
+                    mostPointsInHand: 0,
+                    byDifficulty: {
+                        easy: { wins: 0, games: 0 },
+                        medium: { wins: 0, games: 0 },
+                        hard: { wins: 0, games: 0 }
+                    }
+                };
+            }
+
+            saveStats() {
+                localStorage.setItem('rookGameStats', JSON.stringify(this.stats));
+            }
+
+            updateStats(won) {
+                this.stats.gamesPlayed++;
+                if (won) this.stats.gamesWon++;
+                if (this.difficulty) {
+                    this.stats.byDifficulty[this.difficulty].games++;
+                    if (won) this.stats.byDifficulty[this.difficulty].wins++;
+                }
+                const finalScore = Math.max(this.scores.team1, this.scores.team2);
+                if (finalScore > this.stats.highestScore) {
+                    this.stats.highestScore = finalScore;
+                }
+                this.saveStats();
+            }
+
+            showStats() {
+                const stats = this.stats;
+                const winRate = stats.gamesPlayed > 0 ? ((stats.gamesWon / stats.gamesPlayed) * 100).toFixed(1) : 0;
+                const bidSuccessRate = stats.totalBids > 0 ? ((stats.successfulBids / stats.totalBids) * 100).toFixed(1) : 0;
+
+                const easyWinRate = stats.byDifficulty.easy.games > 0 ?
+                    ((stats.byDifficulty.easy.wins / stats.byDifficulty.easy.games) * 100).toFixed(1) : 0;
+                const mediumWinRate = stats.byDifficulty.medium.games > 0 ?
+                    ((stats.byDifficulty.medium.wins / stats.byDifficulty.medium.games) * 100).toFixed(1) : 0;
+                const hardWinRate = stats.byDifficulty.hard.games > 0 ?
+                    ((stats.byDifficulty.hard.wins / stats.byDifficulty.hard.games) * 100).toFixed(1) : 0;
+
+                this.dom.statsModal.innerHTML = this.createModalContent('📊 Your Statistics', `
+                    <div class="text-white p-4">
+                        <div class="mb-6">
+                            <h3 class="text-xl font-bold mb-3 text-yellow-400">Overall Stats</h3>
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div><strong>Games Played:</strong> ${stats.gamesPlayed}</div>
+                                <div><strong>Win Rate:</strong> ${winRate}%</div>
+                                <div><strong>Games Won:</strong> ${stats.gamesWon}</div>
+                                <div><strong>Highest Score:</strong> ${stats.highestScore}</div>
+                            </div>
+                        </div>
+
+                        <div class="mb-6">
+                            <h3 class="text-xl font-bold mb-3 text-yellow-400">Bidding</h3>
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div><strong>Total Bids:</strong> ${stats.totalBids}</div>
+                                <div><strong>Success Rate:</strong> ${bidSuccessRate}%</div>
+                                <div><strong>Shoot the Moon:</strong> ${stats.shootTheMoonAttempts} attempts</div>
+                                <div><strong>STM Success:</strong> ${stats.shootTheMoonSuccesses}</div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xl font-bold mb-3 text-yellow-400">By Difficulty</h3>
+                            <div class="space-y-2 text-sm">
+                                <div><strong>vs Easy:</strong> ${easyWinRate}% (${stats.byDifficulty.easy.wins}/${stats.byDifficulty.easy.games})</div>
+                                <div><strong>vs Medium:</strong> ${mediumWinRate}% (${stats.byDifficulty.medium.wins}/${stats.byDifficulty.medium.games})</div>
+                                <div><strong>vs Hard:</strong> ${hardWinRate}% (${stats.byDifficulty.hard.wins}/${stats.byDifficulty.hard.games})</div>
+                            </div>
+                        </div>
+
+                        <button id="close-stats-btn" class="mt-6 utility-btn">Close</button>
+                        <button id="reset-stats-btn" class="mt-6 utility-btn bg-red-600 hover:bg-red-700">Reset Stats</button>
+                    </div>
+                `);
+
+                this.showModal('stats');
+                document.getElementById('close-stats-btn').addEventListener('click', () => this.closeModal('stats'));
+                document.getElementById('reset-stats-btn').addEventListener('click', () => {
+                    if (confirm('Are you sure you want to reset all statistics?')) {
+                        this.stats = this.loadStats();
+                        localStorage.removeItem('rookGameStats');
+                        this.closeModal('stats');
+                        this.showStats();
+                    }
+                });
             }
 
             initModals() {
@@ -1821,7 +2131,9 @@
                     if (e.target.id === 'continue-button') {
                         this.hideModal('roundSummary');
                         if (this.scores.team1 >= WINNING_SCORE || this.scores.team2 >= WINNING_SCORE) {
-                            this.showMessage(`${this.scores.team1 >= WINNING_SCORE ? "You and your Partner" : "The Opponents"} win the game!`, 5000);
+                            const won = this.scores.team1 >= WINNING_SCORE;
+                            this.updateStats(won);
+                            this.showMessage(`${won ? "You and your Partner" : "The Opponents"} win the game!`, 5000);
                             setTimeout(() => this.showModal('difficulty'), 5000);
                         } else {
                             this.startNewHand();
@@ -2020,7 +2332,12 @@
                     this.dom.infos[pIndex].classList.add('font-bold', 'text-yellow-300');
                     let playedCard;
                     if (player.isHuman) {
+                        // Show hint button for easy/medium difficulty
+                        if (this.difficulty !== 'hard') {
+                            this.dom.hintBtn.classList.remove('hidden');
+                        }
                         playedCard = await this.getHumanCardPlay();
+                        this.dom.hintBtn.classList.add('hidden');
                     } else {
                         await this.sleep(1000);
                         if (this.difficulty === 'hard') {
