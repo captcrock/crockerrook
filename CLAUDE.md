@@ -13,6 +13,7 @@
 - Do not overengineer the solution. Remember the principle of Occam's Razor.
 - Do not ever for any reason sign a commit message or a code file. This is strictly against company policy.
 - Do not ever include financial predictions unless specifically asked with a question including the word "financial".
+- Do not use emojis in responses, code, or documentation unless specifically directed to do so.
 
 ## BEHAVIOR
 
