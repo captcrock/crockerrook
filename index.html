@@ -874,15 +874,32 @@
             }
         }
         
-        #widow-on-table { 
-            position: fixed; 
+        #widow-on-table {
+            position: fixed;
             z-index: 150;
             pointer-events: none;
         }
-        #widow-on-table .card { 
-            position: absolute; 
+
+        /* Compact widow stack styling */
+        .widow-stack {
+            position: relative;
+            width: 40px;
+            height: 56px;
+        }
+
+        .widow-stack .card {
+            position: absolute;
+            width: 35px !important;
+            height: 50px !important;
+            font-size: 8px;
             pointer-events: none;
         }
+
+        .widow-stack .card:nth-child(1) { top: 0px; left: 0px; }
+        .widow-stack .card:nth-child(2) { top: 1px; left: 1px; }
+        .widow-stack .card:nth-child(3) { top: 2px; left: 2px; }
+        .widow-stack .card:nth-child(4) { top: 3px; left: 3px; }
+        .widow-stack .card:nth-child(5) { top: 4px; left: 4px; }
 
         #see-last-trick-btn {
             position: fixed;
@@ -3177,13 +3194,13 @@
             renderWidowOnTable() {
                 this.dom.widowOnTable.innerHTML = '';
                 const bidderId = this.highBidder.id;
-                
-                // Position widow cards off to the side based on who the bidder is
+
+                // Position widow compactly near the player's hand area, out of play zone
                 const positions = [
-                    { bottom: '25%', right: '8%' },  // P0 (Human) - bottom right
-                    { top: '50%', left: '8%' },      // P1 (Left) - left side
-                    { top: '25%', left: '8%' },      // P2 (Partner) - top left
-                    { top: '25%', right: '8%' }      // P3 (Right) - top right
+                    { bottom: '15%', left: '5%' },    // P0 (Human) - bottom left, near hand
+                    { top: '40%', left: '5%' },       // P1 (Left) - left side, below hand
+                    { top: '15%', right: '5%' },      // P2 (Partner) - top right, near hand
+                    { top: '40%', right: '5%' }       // P3 (Right) - right side, below hand
                 ];
                 const pos = positions[bidderId];
                 this.dom.widowOnTable.style.top = pos.top || 'auto';
@@ -3191,27 +3208,17 @@
                 this.dom.widowOnTable.style.left = pos.left || 'auto';
                 this.dom.widowOnTable.style.right = pos.right || 'auto';
 
-                // Animate cards flying to the widow position
+                // Create compact widow stack
+                const widowStack = document.createElement('div');
+                widowStack.className = 'widow-stack';
+
+                // Add 5 mini card backs in a tight stack
                 for (let i = 0; i < 5; i++) {
                     const cardEl = this.createCardElement(new Card('Special', 'Rook'), false);
-                    
-                    // Start cards from center of table
-                    cardEl.style.position = 'absolute';
-                    cardEl.style.top = '50%';
-                    cardEl.style.left = '50%';
-                    cardEl.style.transform = 'translate(-50%, -50%)';
-                    cardEl.style.transition = 'all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-                    cardEl.style.zIndex = 100 + i;
-                    
-                    this.dom.widowOnTable.appendChild(cardEl);
-                    
-                    // Animate to final position with slight delay for each card
-                    setTimeout(() => {
-                        cardEl.style.top = '0';
-                        cardEl.style.left = `${i * 8}px`;
-                        cardEl.style.transform = `rotate(${(i - 2) * 5}deg)`;
-                    }, i * 150);
+                    widowStack.appendChild(cardEl);
                 }
+
+                this.dom.widowOnTable.appendChild(widowStack);
             }
             async revealNest() {
                 this.showMessage("Revealing the Nest...", 1000);
