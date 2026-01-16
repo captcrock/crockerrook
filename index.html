@@ -2667,7 +2667,8 @@
                     const nestDisplay = document.getElementById('bidding-nest-display');
                     nestDisplay.innerHTML = '';
                     this.nest.forEach((card, i) => {
-                        const cardEl = this.createCardElement(card, false);
+                        const isTopCard = i === this.nest.length - 1; // Last card shown face-up
+                        const cardEl = this.createCardElement(card, isTopCard);
                         cardEl.style.position = 'relative';
                         cardEl.style.transform = `rotate(${i*8-16}deg)`;
                         cardEl.style.zIndex = i;
