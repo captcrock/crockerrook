@@ -512,8 +512,20 @@
             pointer-events: none;
             backdrop-filter: blur(0px);
         }
-        
-        #bidding-modal, #difficulty-modal, #trump-modal, #round-summary-modal, #last-trick-modal, #settings-modal, #rules-modal, #strategy-modal { 
+
+        /* Bidding modal - reduce blur and position higher so player can see their cards */
+        #bidding-modal.active {
+            backdrop-filter: blur(2px);
+            background-color: rgba(0, 0, 0, 0.5);
+            align-items: flex-start;
+            padding-top: 10vh;
+        }
+
+        #bidding-modal .modal-content {
+            max-width: 500px;
+        }
+
+        #bidding-modal, #difficulty-modal, #trump-modal, #round-summary-modal, #last-trick-modal, #settings-modal, #rules-modal, #strategy-modal, #hint-modal, #stats-modal { 
             align-items: center; 
         }
         
