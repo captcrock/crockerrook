@@ -1326,13 +1326,28 @@
                 });
             }
 
-            getBid(currentBid, hasShootTheMoonOption, difficulty) {
+            getBid(currentBid, hasShootTheMoonOption, difficulty, highBidder, previousBid) {
+                // Partner awareness: Check if partner made a large bid increase
+                const isPartnerHighBidder = highBidder && highBidder.id === this.partnerId;
+                const partnerBidIncrease = previousBid ? (currentBid - previousBid) : 0;
+                const partnerMadeLargeIncrease = isPartnerHighBidder && partnerBidIncrease > 15;
+
                 // Simple AI for bidding
                 const pointCards = this.hand.filter(c => c.value > 5).length;
                 const rook = this.hand.some(c => c.rank === 'Rook');
+                const ones = this.hand.filter(c => c.rank === 1).length;
                 let bidStrength = pointCards * 10 + (rook ? 20 : 0);
 
                 const potentialBid = 85 + Math.floor(bidStrength / 5) * 5;
+
+                // Don't overbid partner unless we have a very strong hand
+                if (partnerMadeLargeIncrease) {
+                    // Need Rook + 2+ Aces or 3+ Aces to overbid partner
+                    const veryStrongHand = (rook && ones >= 2) || (ones >= 3);
+                    if (!veryStrongHand) {
+                        return 'pass';
+                    }
+                }
 
                 if (potentialBid > currentBid) {
                     return potentialBid;
@@ -1372,7 +1387,12 @@
                 return bestSuit || SUITS[Math.floor(Math.random() * SUITS.length)]; // Fallback
             }
 
-            getAdvancedBid(currentBid, hasShootTheMoonOption) {
+            getAdvancedBid(currentBid, hasShootTheMoonOption, highBidder, previousBid) {
+                // Partner awareness: Check if partner made a large bid increase
+                const isPartnerHighBidder = highBidder && highBidder.id === this.partnerId;
+                const partnerBidIncrease = previousBid ? (currentBid - previousBid) : 0;
+                const partnerMadeLargeIncrease = isPartnerHighBidder && partnerBidIncrease > 15;
+
                 let handValue = 0;
 
                 // Point card values with adjusted valuations
@@ -1466,6 +1486,23 @@
                     const strongHand = hasRook || (ones.length >= 2 && bestTrumpLength >= 6);
                     if (!strongHand) {
                         potentialBid = Math.min(potentialBid, 145);
+                    }
+                }
+
+                // Partner awareness: Don't overbid partner unless we have a near-180 hand
+                if (partnerMadeLargeIncrease) {
+                    // Partner signaled a very strong hand - only overbid if we can likely make 180
+                    const exceptionalHand180 = (hasRook && ones.length >= 3) ||
+                                               (hasRook && ones.length >= 2 && bestTrumpLength >= 8) ||
+                                               (ones.length >= 4 && bestTrumpLength >= 7);
+
+                    if (!exceptionalHand180) {
+                        // Partner has a strong hand, let them have it
+                        return 'pass';
+                    }
+                    // Only bid if we can reasonably go to 180
+                    if (potentialBid < 175) {
+                        return 'pass';
                     }
                 }
 
@@ -2362,6 +2399,7 @@
             
             async startBidding() {
                 this.highBid = 85; this.highBidder = null;
+                this.previousBid = 85; // Track previous bid for partner logic
                 this.players.forEach(p => p.hasPassed = false);
                 this.bidTurnIndex = (this.dealerIndex + 1) % 4;
                 this.biddingRound = 0;
@@ -2372,22 +2410,22 @@
                     this.dom.infos[this.bidTurnIndex].classList.add('font-bold', 'text-yellow-300');
                     const hasShootOpt = this.biddingRound < 4;
                     let bid;
-                    if (player.isHuman) { 
-                        bid = await this.getHumanBid(hasShootOpt); 
-                    } else { 
-                        await this.sleep(1500); 
+                    if (player.isHuman) {
+                        bid = await this.getHumanBid(hasShootOpt);
+                    } else {
+                        await this.sleep(1500);
                         if (this.difficulty === 'hard') {
-                            bid = player.getAdvancedBid(this.highBid, hasShootOpt);
+                            bid = player.getAdvancedBid(this.highBid, hasShootOpt, this.highBidder, this.previousBid);
                         } else {
-                            bid = player.getBid(this.highBid, hasShootOpt, this.difficulty);
+                            bid = player.getBid(this.highBid, hasShootOpt, this.difficulty, this.highBidder, this.previousBid);
                         }
-                        this.showMessage(`${this.dom.infos[player.id].textContent} bids ${bid}`, 1400); 
+                        this.showMessage(`${this.dom.infos[player.id].textContent} bids ${bid}`, 1400);
                     }
-                    
+
                     this.dom.infos.forEach(info => info.classList.remove('high-bidder'));
-                    if (bid === 'shoot') { this.highBid = 'shoot'; this.highBidder = player; this.dom.infos[this.players.indexOf(this.highBidder)].classList.add('high-bidder'); break; }
+                    if (bid === 'shoot') { this.previousBid = this.highBid; this.highBid = 'shoot'; this.highBidder = player; this.dom.infos[this.players.indexOf(this.highBidder)].classList.add('high-bidder'); break; }
                     else if (bid === 'pass') { player.hasPassed = true; }
-                    else { this.highBid = bid; this.highBidder = player; this.dom.infos[this.players.indexOf(this.highBidder)].classList.add('high-bidder');}
+                    else { this.previousBid = this.highBid; this.highBid = bid; this.highBidder = player; this.dom.infos[this.players.indexOf(this.highBidder)].classList.add('high-bidder');}
                     this.bidTurnIndex = (this.bidTurnIndex + 1) % 4; this.biddingRound++;
                 }
                 if (!this.highBidder) { this.highBidder = this.players.find(p => !p.hasPassed) || this.players[this.dealerIndex]; this.highBid = this.highBidder ? this.highBid : 90; if(!this.highBidder) this.highBidder = this.players[this.dealerIndex]; this.dom.infos[this.players.indexOf(this.highBidder)].classList.add('high-bidder'); }
