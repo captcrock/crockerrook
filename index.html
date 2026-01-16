@@ -1048,6 +1048,11 @@
             transition: all 0.3s ease;
         }
 
+        /* Hide card tracker on hard difficulty */
+        .card-tracker.hidden-hard {
+            display: none;
+        }
+
         .card-tracker-toggle {
             padding: 10px 15px;
             cursor: pointer;
@@ -1325,7 +1330,7 @@
 
                 // Point card values with adjusted valuations
                 const hasRook = this.hand.filter(c => c.rank === 'Rook').length > 0;
-                handValue += hasRook ? 25 : 0;
+                handValue += hasRook ? 20 : 0;
                 const aces = this.hand.filter(c => c.rank === 1);
                 handValue += aces.length * 15;
                 const fourteens = this.hand.filter(c => c.rank === 14);
@@ -1354,13 +1359,13 @@
                 if (bestTrumpLength >= 6) {
                     const trumpCards = this.hand.filter(c => c.suit === bestTrumpSuit);
                     const highTrumps = trumpCards.filter(c => c.power >= 13).length; // Ace, 14, 13
-                    handValue += bestTrumpLength * 8; // Length bonus
-                    handValue += highTrumps * 10; // High card control bonus
+                    handValue += bestTrumpLength * 6; // Reduced from 8
+                    handValue += highTrumps * 8; // Reduced from 10
 
                     // Extra bonus for very long trump
-                    if (bestTrumpLength >= 7) handValue += 20;
+                    if (bestTrumpLength >= 7) handValue += 15; // Reduced from 20
                 } else if (bestTrumpLength >= 5) {
-                    handValue += bestTrumpLength * 5;
+                    handValue += bestTrumpLength * 4; // Reduced from 5
                 }
 
                 // Distribution bonuses
@@ -1369,37 +1374,58 @@
                 for (const suit in suitCounts) {
                     if (suit === bestTrumpSuit) continue; // Don't count trump suit
                     if (suitCounts[suit] === 0) {
-                        handValue += 15; // Void bonus (can ruff)
+                        handValue += 10; // Reduced from 15
                         voidCount++;
                     } else if (suitCounts[suit] === 1) {
-                        handValue += 8;  // Singleton bonus
+                        handValue += 5;  // Reduced from 8
                         singletonCount++;
                     }
                 }
 
-                // Nest expectation: 5 random cards likely contain 10-15 points
-                const nestExpectation = 12;
+                // Nest expectation: more conservative, only add if hand is promising
+                const nestExpectation = handValue > 60 ? 8 : 5;
                 handValue += nestExpectation;
 
-                // Positional adjustment based on dealer position (if we can detect it)
-                // For now, add slight bonus if we have strong hand (be more aggressive)
-                if (handValue > 120) handValue += 5;
-
-                // Check for "shoot the moon" hand
+                // Check for "shoot the moon" hand - stricter requirements
                 const quickTricks = (hasRook ? 1 : 0) + aces.length;
                 const controlSuits = Object.values(suitCounts).filter(count => count >= 5).length;
-                if (handValue > 160 && quickTricks >= 3 && controlSuits >= 2 && hasShootTheMoonOption) {
+                if (handValue > 150 && quickTricks >= 4 && controlSuits >= 2 && bestTrumpLength >= 7 && hasShootTheMoonOption) {
                     return 'shoot';
                 }
 
-                // Convert hand value to a reasonable bid
-                let potentialBid = 70 + Math.floor(handValue / 5) * 5;
-                potentialBid = Math.min(potentialBid, 180); // Cap at 180
+                // Convert hand value to a conservative bid
+                // More realistic conversion: need ~2 handValue points per bid point above 90
+                let potentialBid = 90 + Math.floor(Math.max(0, handValue - 50) / 2.5) * 5;
+                potentialBid = Math.min(potentialBid, 180);
+
+                // Strict requirements for high bids
+                if (potentialBid >= 170) {
+                    // Must have exceptional hand: Rook + 3+ Aces OR Rook + 2 Aces + 8+ trump
+                    const exceptionalHand = (hasRook && aces.length >= 3) ||
+                                          (hasRook && aces.length >= 2 && bestTrumpLength >= 8) ||
+                                          (aces.length >= 4 && bestTrumpLength >= 7);
+                    if (!exceptionalHand) {
+                        potentialBid = Math.min(potentialBid, 165);
+                    }
+                } else if (potentialBid >= 160) {
+                    // Must have very strong hand: Rook + 2+ Aces OR 3+ Aces + 7+ trump
+                    const veryStrongHand = (hasRook && aces.length >= 2) ||
+                                         (aces.length >= 3 && bestTrumpLength >= 7);
+                    if (!veryStrongHand) {
+                        potentialBid = Math.min(potentialBid, 155);
+                    }
+                } else if (potentialBid >= 150) {
+                    // Must have strong hand: Rook OR 2+ Aces + good trump
+                    const strongHand = hasRook || (aces.length >= 2 && bestTrumpLength >= 6);
+                    if (!strongHand) {
+                        potentialBid = Math.min(potentialBid, 145);
+                    }
+                }
 
                 // Bidding strategy
-                if (potentialBid > currentBid && potentialBid >= 90) { // Minimum bid is 90
-                    // More aggressive bidding: can jump more than 15
-                    const jumpSize = Math.min(20, potentialBid - currentBid);
+                if (potentialBid > currentBid && potentialBid >= 90) {
+                    // Conservative bidding: smaller jumps
+                    const jumpSize = Math.min(15, potentialBid - currentBid);
                     return currentBid + jumpSize;
                 }
 
@@ -2172,6 +2198,12 @@
                 this.dom.difficultyModal.addEventListener('click', e => {
                     if (e.target.dataset.difficulty) {
                         this.difficulty = e.target.dataset.difficulty;
+                        // Hide card tracker on hard mode, show on easy/medium
+                        if (this.difficulty === 'hard') {
+                            this.dom.cardTracker.classList.add('hidden-hard');
+                        } else {
+                            this.dom.cardTracker.classList.remove('hidden-hard');
+                        }
                         this.hideModal('difficulty');
                         this.startNewGame();
                     } else if (e.target.id === 'view-rules-btn') {
@@ -2911,10 +2943,17 @@
                 this.updateLiveSummary('trump');
             }
             updateScoreboard() {
+                const formatScore = (score) => {
+                    if (score < 0) {
+                        return `${Math.abs(score)} (in the hole)`;
+                    }
+                    return score;
+                };
+
                 this.dom.gameSummaryBox.innerHTML = `
                     <div class="total-scores font-bold mb-1">
-                        <div>You/Partner: ${this.scores.team1}</div>
-                        <div>Opponents: ${this.scores.team2}</div>
+                        <div>You/Partner: ${formatScore(this.scores.team1)}</div>
+                        <div>Opponents: ${formatScore(this.scores.team2)}</div>
                     </div>
                     <table class="current-hand-info w-full text-left">
                         <tbody>
