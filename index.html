@@ -513,17 +513,60 @@
             backdrop-filter: blur(0px);
         }
 
-        /* Bidding modal - NO blur, minimal dimming so player can see their cards clearly */
+        /* Bidding modal - show player's hand and nest inside, keep dimming */
         #bidding-modal.active {
-            backdrop-filter: blur(0px);
-            background-color: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(3px);
+            background-color: rgba(0, 0, 0, 0.6);
             align-items: flex-start;
-            padding-top: 5vh;
+            padding-top: 3vh;
         }
 
         #bidding-modal .modal-content {
-            max-width: 450px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+            max-width: 800px;
+            max-height: 95vh;
+            overflow-y: auto;
+        }
+
+        #bidding-hand-display {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+            padding: 15px;
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 12px;
+            border: 2px solid rgba(251, 191, 36, 0.3);
+        }
+
+        #bidding-hand-display .card {
+            min-width: 55px;
+            min-height: 77px;
+            font-size: 11px;
+        }
+
+        #bidding-nest-display {
+            display: flex;
+            justify-content: center;
+            gap: -20px;
+            margin-top: 15px;
+            margin-bottom: 15px;
+        }
+
+        #bidding-nest-display .card {
+            min-width: 50px;
+            min-height: 70px;
+            font-size: 10px;
+            margin: 0 -15px;
+        }
+
+        .bidding-section-label {
+            color: var(--yellow-suit);
+            font-weight: 700;
+            font-size: 14px;
+            margin-top: 15px;
+            margin-bottom: 8px;
+            text-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
         }
 
         #bidding-modal, #difficulty-modal, #trump-modal, #round-summary-modal, #last-trick-modal, #settings-modal, #rules-modal, #strategy-modal, #hint-modal, #stats-modal { 
@@ -2014,7 +2057,10 @@
                         </div>
                     </div>`);
                 this.dom.biddingModal.innerHTML = this.createModalContent('Your Bid', `
-                    <p class="mb-2">Current Bid: <span id="current-bid-display"></span></p>
+                    <div class="bidding-section-label">🃏 The Nest (5 cards)</div>
+                    <div id="bidding-nest-display"></div>
+
+                    <p class="mb-2 mt-4">Current Bid: <span id="current-bid-display"></span></p>
                     <div id="bid-options" class="flex items-center justify-center">
                         <input type="number" id="bid-input" class="p-2 rounded" min="90" max="180" step="5">
                         <button id="submit-bid-button">Bid</button>
@@ -2022,7 +2068,11 @@
                     <div class="mt-4">
                         <button id="pass-button">Pass</button>
                         <button id="shoot-moon-button" class="bg-red-600 hover:bg-red-700">Shoot the Moon!</button>
-                    </div>`);
+                    </div>
+
+                    <div class="bidding-section-label">🎴 Your Hand</div>
+                    <div id="bidding-hand-display"></div>
+                `);
                 this.dom.trumpModal.innerHTML = this.createModalContent('Name the Trump Suit', `
                     <div id="trump-options" class="flex gap-4 justify-center">
                         <button data-suit="Black" class="trump-suit-btn" style="background: linear-gradient(145deg, var(--black-suit), #1a1a1a); color: white; border: 2px solid var(--black-suit);">B</button>
@@ -2592,10 +2642,38 @@
                     display.innerHTML = `${this.highBid}<span class="text-sm text-gray-400 ml-2">${highBidderName}</span>`;
                     input.value = nextBid; input.min = nextBid;
                     shootBtn.style.display = hasShootOpt ? 'inline-block' : 'none';
-                    const cleanup = () => { submitBtn.onclick = null; passBtn.onclick = null; shootBtn.onclick = null; this.hideModal('bidding'); };
+                    const cleanup = () => {
+                        submitBtn.onclick = null;
+                        passBtn.onclick = null;
+                        shootBtn.onclick = null;
+                        this.hideModal('bidding');
+                    };
                     submitBtn.onclick = () => { const val = Number(input.value); if (val >= nextBid && val <= 180 && val % 5 === 0) { cleanup(); resolve(val); } else { this.showMessage("Invalid bid amount.", 1500); } };
                     passBtn.onclick = () => { cleanup(); resolve('pass'); };
                     shootBtn.onclick = () => { cleanup(); resolve('shoot'); };
+
+                    // Populate hand display in bidding modal
+                    const handDisplay = document.getElementById('bidding-hand-display');
+                    handDisplay.innerHTML = '';
+                    const humanPlayer = this.players[0];
+                    humanPlayer.hand.forEach(card => {
+                        const cardEl = this.createCardElement(card, true);
+                        cardEl.style.position = 'relative';
+                        cardEl.style.transform = 'none';
+                        handDisplay.appendChild(cardEl);
+                    });
+
+                    // Populate nest display in bidding modal
+                    const nestDisplay = document.getElementById('bidding-nest-display');
+                    nestDisplay.innerHTML = '';
+                    this.nest.forEach((card, i) => {
+                        const cardEl = this.createCardElement(card, false);
+                        cardEl.style.position = 'relative';
+                        cardEl.style.transform = `rotate(${i*8-16}deg)`;
+                        cardEl.style.zIndex = i;
+                        nestDisplay.appendChild(cardEl);
+                    });
+
                     this.showModal('bidding');
                 });
             }
