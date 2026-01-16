@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover">
     <title>Crocker Rook</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0f172a">
@@ -940,13 +940,56 @@
             z-index: 210;
             background: var(--glass-bg);
             backdrop-filter: blur(20px);
-            padding: 8px;
+            padding: 6px;
             border-radius: 8px;
             border: 1px solid var(--glass-border);
-            font-size: clamp(8px, 1.5vw, 10px);
-            width: clamp(175px, 35vw, 212px);
+            font-size: clamp(7px, 1.3vw, 9px);
+            width: clamp(140px, 28vw, 170px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            touch-action: none;
+            cursor: move;
+        }
+        .game-summary-box.collapsed {
+            width: auto;
+            padding: 4px 8px;
+        }
+        .game-summary-box.collapsed .game-summary-content {
+            display: none;
+        }
+        .game-summary-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        .game-summary-header.collapsed-only {
+            margin-bottom: 0;
+        }
+        .collapse-toggle {
+            background: rgba(251, 191, 36, 0.2);
+            border: 1px solid rgba(251, 191, 36, 0.4);
+            color: var(--yellow-suit);
+            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 700;
+            transition: all 0.2s;
+            line-height: 1;
+        }
+        .collapse-toggle:hover {
+            background: rgba(251, 191, 36, 0.3);
+            transform: scale(1.05);
+        }
+        .collapsed-info {
+            display: none;
+            font-weight: 700;
+            color: var(--yellow-suit);
+            font-size: 1.1em;
+        }
+        .game-summary-box.collapsed .collapsed-info {
+            display: inline;
         }
         .game-summary-box .total-scores {
             display: flex;
@@ -1000,12 +1043,16 @@
                  left: 15px;
              }
              .game-summary-box {
-                 top: 10px;
-                 left: 10px;
-                 padding: 6px;
-                 width: clamp(150px, 31vw, 187px);
-                 font-size: clamp(7px, 1.2vw, 9px);
+                 top: 8px;
+                 left: 8px;
+                 padding: 4px;
+                 width: clamp(120px, 25vw, 150px);
+                 font-size: clamp(6px, 1.1vw, 8px);
                  border-radius: 6px;
+             }
+             .collapse-toggle {
+                 font-size: 10px;
+                 padding: 2px 5px;
              }
              .game-summary-box .total-scores {
                  margin-bottom: 3px;
@@ -1785,6 +1832,7 @@
                 this.initMenu();
                 this.initCardTracker();
                 this.initHints();
+                this.initSummaryDrag();
                 this.dom.seeLastTrickBtn.addEventListener('click', () => this.showLastTrick());
             }
 
@@ -2951,18 +2999,24 @@
                 };
 
                 this.dom.gameSummaryBox.innerHTML = `
-                    <div class="total-scores font-bold mb-1">
-                        <div>You/Partner: ${formatScore(this.scores.team1)}</div>
-                        <div>Opponents: ${formatScore(this.scores.team2)}</div>
+                    <div class="game-summary-header">
+                        <span class="collapsed-info">${this.scores.team1} - ${this.scores.team2}</span>
+                        <button class="collapse-toggle" onclick="game.toggleSummaryCollapse()">−</button>
                     </div>
-                    <table class="current-hand-info w-full text-left">
-                        <tbody>
-                            <tr><td>Dealer:</td><td><span id="live-dealer">...</span></td></tr>
-                            <tr><td>High Bid:</td><td><span id="live-bid">...</span></td></tr>
-                            <tr><td>Trump:</td><td><span id="live-trump">...</span></td></tr>
-                            <tr><td>Rook:</td><td><span id="live-rook">...</span></td></tr>
-                        </tbody>
-                    </table>`;
+                    <div class="game-summary-content">
+                        <div class="total-scores font-bold mb-1">
+                            <div>You/Partner: ${formatScore(this.scores.team1)}</div>
+                            <div>Opponents: ${formatScore(this.scores.team2)}</div>
+                        </div>
+                        <table class="current-hand-info w-full text-left">
+                            <tbody>
+                                <tr><td>Dealer:</td><td><span id="live-dealer">...</span></td></tr>
+                                <tr><td>High Bid:</td><td><span id="live-bid">...</span></td></tr>
+                                <tr><td>Trump:</td><td><span id="live-trump">...</span></td></tr>
+                                <tr><td>Rook:</td><td><span id="live-rook">...</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>`;
             }
             showMessage(msg, duration) { this.dom.statusMessage.textContent = msg; this.dom.statusMessage.classList.remove('hidden'); setTimeout(() => this.dom.statusMessage.classList.add('hidden'), duration); }
             updateLiveSummary(field) {
@@ -2975,6 +3029,78 @@
                 if (!field || field === 'trump') { document.getElementById('live-trump').textContent = this.currentHandData.trumpSuit === null ? 'None' : this.currentHandData.trumpSuit || '...'; }
                 if (!field || field === 'rook') { document.getElementById('live-rook').textContent = this.currentHandData.rookWinner || '...'; }
             }
+            toggleSummaryCollapse() {
+                const box = this.dom.gameSummaryBox;
+                const toggle = box.querySelector('.collapse-toggle');
+                const header = box.querySelector('.game-summary-header');
+
+                if (box.classList.contains('collapsed')) {
+                    box.classList.remove('collapsed');
+                    toggle.textContent = '−';
+                    header.classList.remove('collapsed-only');
+                } else {
+                    box.classList.add('collapsed');
+                    toggle.textContent = '+';
+                    header.classList.add('collapsed-only');
+                }
+            }
+
+            initSummaryDrag() {
+                const box = this.dom.gameSummaryBox;
+                let isDragging = false;
+                let startX, startY, initialX, initialY;
+
+                const handleStart = (e) => {
+                    const target = e.target;
+                    if (target.classList.contains('collapse-toggle')) return;
+
+                    isDragging = true;
+                    const touch = e.touches ? e.touches[0] : e;
+                    startX = touch.clientX;
+                    startY = touch.clientY;
+
+                    const rect = box.getBoundingClientRect();
+                    initialX = rect.left;
+                    initialY = rect.top;
+
+                    box.style.transition = 'none';
+                    e.preventDefault();
+                };
+
+                const handleMove = (e) => {
+                    if (!isDragging) return;
+
+                    const touch = e.touches ? e.touches[0] : e;
+                    const deltaX = touch.clientX - startX;
+                    const deltaY = touch.clientY - startY;
+
+                    const newX = initialX + deltaX;
+                    const newY = initialY + deltaY;
+
+                    const maxX = window.innerWidth - box.offsetWidth;
+                    const maxY = window.innerHeight - box.offsetHeight;
+
+                    box.style.left = Math.max(0, Math.min(newX, maxX)) + 'px';
+                    box.style.top = Math.max(0, Math.min(newY, maxY)) + 'px';
+
+                    e.preventDefault();
+                };
+
+                const handleEnd = () => {
+                    if (isDragging) {
+                        isDragging = false;
+                        box.style.transition = '';
+                    }
+                };
+
+                box.addEventListener('mousedown', handleStart);
+                box.addEventListener('touchstart', handleStart, { passive: false });
+                document.addEventListener('mousemove', handleMove);
+                document.addEventListener('touchmove', handleMove, { passive: false });
+                document.addEventListener('mouseup', handleEnd);
+                document.addEventListener('touchend', handleEnd);
+            }
+
             sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
         }
 
