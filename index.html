@@ -950,9 +950,34 @@
             touch-action: none;
             cursor: move;
         }
+        /* Position near player who has the Rook */
+        .game-summary-box.position-player-0 {
+            bottom: 10px;
+            top: auto;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .game-summary-box.position-player-1 {
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        .game-summary-box.position-player-2 {
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .game-summary-box.position-player-3 {
+            right: 10px;
+            left: auto;
+            top: 50%;
+            transform: translateY(-50%);
+        }
         .game-summary-box.collapsed {
             width: auto;
-            padding: 4px 8px;
+            padding: 3px 6px;
+            font-size: clamp(6px, 1.1vw, 8px);
+            min-width: auto;
         }
         .game-summary-box.collapsed .game-summary-content {
             display: none;
@@ -977,6 +1002,10 @@
             font-weight: 700;
             transition: all 0.2s;
             line-height: 1;
+        }
+        .game-summary-box.collapsed .collapse-toggle {
+            font-size: 10px;
+            padding: 1px 4px;
         }
         .collapse-toggle:hover {
             background: rgba(251, 191, 36, 0.3);
@@ -2406,6 +2435,8 @@
                 this.dom.gameSummaryBox.classList.remove('hidden');
                 // Expand panel at start of hand so players can see bidding/dealer info
                 this.dom.gameSummaryBox.classList.remove('collapsed');
+                // Reset position to default (top-left)
+                this.resetSummaryBoxPosition();
                 this.dom.trickArea.innerHTML = '';
                 this.dom.nestDisplay.innerHTML = '';
                 this.dom.widowOnTable.innerHTML = '';
@@ -2593,7 +2624,9 @@
                 
                 if (this.currentTrick.some(p => p.card.rank === 'Rook')) {
                     this.currentHandData.rookWinner = this.dom.infos[winnerInfo.player.id].textContent;
+                    this.currentHandData.rookWinnerId = winnerInfo.player.id;
                     this.updateLiveSummary('rook');
+                    this.positionSummaryBoxNearPlayer(winnerInfo.player.id);
                 }
                 
                 this.lastTrick = [...this.currentTrick];
@@ -3187,6 +3220,32 @@
                 document.addEventListener('touchmove', handleMove, { passive: false });
                 document.addEventListener('mouseup', handleEnd);
                 document.addEventListener('touchend', handleEnd);
+            }
+
+            positionSummaryBoxNearPlayer(playerId) {
+                const box = this.dom.gameSummaryBox;
+                // Remove all position classes
+                box.classList.remove('position-player-0', 'position-player-1', 'position-player-2', 'position-player-3');
+                // Add the appropriate position class for this player
+                box.classList.add(`position-player-${playerId}`);
+                // Reset any manual positioning from dragging
+                box.style.left = '';
+                box.style.top = '';
+                box.style.right = '';
+                box.style.bottom = '';
+                box.style.transform = '';
+            }
+
+            resetSummaryBoxPosition() {
+                const box = this.dom.gameSummaryBox;
+                // Remove all position classes
+                box.classList.remove('position-player-0', 'position-player-1', 'position-player-2', 'position-player-3');
+                // Reset manual positioning
+                box.style.left = '';
+                box.style.top = '';
+                box.style.right = '';
+                box.style.bottom = '';
+                box.style.transform = '';
             }
 
             sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
