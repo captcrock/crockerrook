@@ -871,14 +871,141 @@
              }
          }
 
+        /* Card Tracker Styles */
+        .card-tracker {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(251, 191, 36, 0.5);
+            border-radius: 12px;
+            color: white;
+            max-width: 280px;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .card-tracker-toggle {
+            padding: 10px 15px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            font-size: 14px;
+            user-select: none;
+        }
+
+        .card-tracker-toggle:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px 10px 0 0;
+        }
+
+        .card-tracker-content {
+            padding: 0 15px 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .card-tracker.expanded .card-tracker-content {
+            display: block;
+        }
+
+        .card-tracker.collapsed .card-tracker-content {
+            display: none;
+        }
+
+        .card-tracker.expanded #tracker-arrow {
+            transform: rotate(180deg);
+        }
+
+        .tracker-suit {
+            margin-bottom: 12px;
+        }
+
+        .tracker-suit-name {
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .tracker-suit-cards {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            font-size: 11px;
+        }
+
+        .tracker-card {
+            padding: 3px 6px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .tracker-card.played {
+            background: rgba(100, 100, 100, 0.3);
+            text-decoration: line-through;
+            opacity: 0.5;
+        }
+
+        .tracker-card.high-value {
+            background: rgba(251, 191, 36, 0.2);
+            border-color: rgba(251, 191, 36, 0.5);
+            font-weight: 600;
+        }
+
+        .tracker-stats {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 12px;
+        }
+
+        .tracker-stats > div {
+            margin-bottom: 6px;
+        }
+
+        @media (max-width: 768px) {
+            .card-tracker {
+                max-width: 220px;
+                font-size: 11px;
+            }
+            .card-tracker-toggle {
+                padding: 8px 12px;
+                font-size: 12px;
+            }
+        }
+
     </style>
 </head>
 <body>
     <div class="game-container">
         <div id="game-summary-box" class="game-summary-box hidden"></div>
         <button id="see-last-trick-btn" class="utility-btn" disabled>See Last Trick</button>
-        
+
         <div id="trump-indicator" class="trump-indicator hidden"></div>
+
+        <!-- Card Tracker Panel -->
+        <div id="card-tracker" class="card-tracker collapsed">
+            <div id="card-tracker-toggle" class="card-tracker-toggle">
+                <span>📊 Card Tracker</span>
+                <span id="tracker-arrow">▼</span>
+            </div>
+            <div id="card-tracker-content" class="card-tracker-content">
+                <div id="tracker-suits"></div>
+                <div class="tracker-stats">
+                    <div><strong>Trump Left:</strong> <span id="tracker-trump-count">-</span></div>
+                    <div><strong>Points Left:</strong> <span id="tracker-points-left">180</span></div>
+                </div>
+            </div>
+        </div>
         
         <div id="hamburger-menu" class="hamburger-menu">
             <div id="hamburger-icon" class="hamburger-icon">
@@ -1030,30 +1157,87 @@
 
             getAdvancedBid(currentBid, hasShootTheMoonOption) {
                 let handValue = 0;
-                // Basic point card values
-                handValue += this.hand.filter(c => c.rank === 'Rook').length * 25;
-                handValue += this.hand.filter(c => c.rank === 1).length * 15;
-                handValue += this.hand.filter(c => c.rank === 14).length * 10;
-                handValue += this.hand.filter(c => c.rank === 10).length * 8;
-                handValue += this.hand.filter(c => c.rank === 5).length * 5;
 
-                const suitCounts = SUITS.reduce((acc, suit) => { acc[suit] = this.hand.filter(c => c.suit === suit).length; return acc; }, {});
-                
-                // Advanced distribution valuation
+                // Point card values with adjusted valuations
+                const hasRook = this.hand.filter(c => c.rank === 'Rook').length > 0;
+                handValue += hasRook ? 25 : 0;
+                const aces = this.hand.filter(c => c.rank === 1);
+                handValue += aces.length * 15;
+                const fourteens = this.hand.filter(c => c.rank === 14);
+                handValue += fourteens.length * 10;
+                const tens = this.hand.filter(c => c.rank === 10);
+                handValue += tens.length * 8;
+                const fives = this.hand.filter(c => c.rank === 5);
+                handValue += fives.length * 5;
+
+                const suitCounts = SUITS.reduce((acc, suit) => {
+                    acc[suit] = this.hand.filter(c => c.suit === suit).length;
+                    return acc;
+                }, {});
+
+                // Find best potential trump suit
+                let bestTrumpLength = 0;
+                let bestTrumpSuit = '';
                 for (const suit in suitCounts) {
-                    if (suitCounts[suit] >= 5) handValue += suitCounts[suit] * 5; // Long suit bonus
-                    if (suitCounts[suit] === 0) handValue += 18; // Void bonus
-                    if (suitCounts[suit] === 1) handValue += 8;  // Singleton bonus
+                    if (suitCounts[suit] > bestTrumpLength) {
+                        bestTrumpLength = suitCounts[suit];
+                        bestTrumpSuit = suit;
+                    }
                 }
 
-                if (handValue > 150 && hasShootTheMoonOption) return 'shoot';
-                
+                // Suit quality bonus (for potential trump)
+                if (bestTrumpLength >= 6) {
+                    const trumpCards = this.hand.filter(c => c.suit === bestTrumpSuit);
+                    const highTrumps = trumpCards.filter(c => c.power >= 13).length; // Ace, 14, 13
+                    handValue += bestTrumpLength * 8; // Length bonus
+                    handValue += highTrumps * 10; // High card control bonus
+
+                    // Extra bonus for very long trump
+                    if (bestTrumpLength >= 7) handValue += 20;
+                } else if (bestTrumpLength >= 5) {
+                    handValue += bestTrumpLength * 5;
+                }
+
+                // Distribution bonuses
+                let voidCount = 0;
+                let singletonCount = 0;
+                for (const suit in suitCounts) {
+                    if (suit === bestTrumpSuit) continue; // Don't count trump suit
+                    if (suitCounts[suit] === 0) {
+                        handValue += 15; // Void bonus (can ruff)
+                        voidCount++;
+                    } else if (suitCounts[suit] === 1) {
+                        handValue += 8;  // Singleton bonus
+                        singletonCount++;
+                    }
+                }
+
+                // Nest expectation: 5 random cards likely contain 10-15 points
+                const nestExpectation = 12;
+                handValue += nestExpectation;
+
+                // Positional adjustment based on dealer position (if we can detect it)
+                // For now, add slight bonus if we have strong hand (be more aggressive)
+                if (handValue > 120) handValue += 5;
+
+                // Check for "shoot the moon" hand
+                const quickTricks = (hasRook ? 1 : 0) + aces.length;
+                const controlSuits = Object.values(suitCounts).filter(count => count >= 5).length;
+                if (handValue > 160 && quickTricks >= 3 && controlSuits >= 2 && hasShootTheMoonOption) {
+                    return 'shoot';
+                }
+
                 // Convert hand value to a reasonable bid
-                const potentialBid = 75 + Math.floor(handValue / 5) * 5;
+                let potentialBid = 70 + Math.floor(handValue / 5) * 5;
+                potentialBid = Math.min(potentialBid, 180); // Cap at 180
 
-                if (potentialBid > currentBid && potentialBid < 181) {
-                    return Math.min(potentialBid, currentBid + 15); // Don't jump too high
+                // Bidding strategy
+                if (potentialBid > currentBid && potentialBid >= 90) { // Minimum bid is 90
+                    // More aggressive bidding: can jump more than 15
+                    const jumpSize = Math.min(20, potentialBid - currentBid);
+                    return currentBid + jumpSize;
                 }
+
                 return 'pass';
             }
 
@@ -1118,26 +1302,136 @@
                 return { trumpSuit: bestSuit, buriedCards: toBury };
             }
 
-            playAdvancedCard(trick, trumpSuit, trickHistory) {
+            // Card counting helpers
+            getPlayedCards(trickHistory) {
+                return trickHistory.flat().map(p => p.card);
+            }
+
+            getRemainingCardsBysuit(trickHistory, trumpSuit) {
+                const playedCards = this.getPlayedCards(trickHistory);
+                const remaining = {};
+
+                SUITS.forEach(suit => {
+                    remaining[suit] = RANKS.filter(rank => {
+                        return !playedCards.some(c => c.suit === suit && c.rank === rank);
+                    });
+                });
+
+                // Track Rook separately
+                remaining.Rook = !playedCards.some(c => c.rank === 'Rook');
+
+                return remaining;
+            }
+
+            getTrumpCount(trickHistory, trumpSuit) {
+                if (!trumpSuit) return 0;
+                const playedCards = this.getPlayedCards(trickHistory);
+                const playedTrumps = playedCards.filter(c => c.suit === trumpSuit || c.rank === 'Rook').length;
+                const totalTrumps = 11 + 1; // 11 cards per suit + Rook
+                return totalTrumps - playedTrumps;
+            }
+
+            detectPartnerVoids(trickHistory) {
+                const voids = new Set();
+
+                trickHistory.forEach(trick => {
+                    if (trick.length < 2) return;
+
+                    const leadCard = trick[0].card;
+                    const leadSuit = leadCard.rank === 'Rook' ? null : leadCard.suit;
+
+                    trick.forEach(play => {
+                        if (play.player.id === this.partnerId && leadSuit) {
+                            // If partner didn't follow suit, they're void
+                            if (play.card.suit !== leadSuit && play.card.rank !== 'Rook') {
+                                voids.add(leadSuit);
+                            }
+                        }
+                    });
+                });
+
+                return voids;
+            }
+
+            playAdvancedCard(trick, trumpSuit, trickHistory, gameState = null) {
                 const playableCards = this.getPlayableCards(trick.map(p => p.card), trumpSuit);
                 const trickCards = trick.map(p => p.card);
+                const remainingCards = this.getRemainingCardsBysuit(trickHistory, trumpSuit);
+                const trumpsRemaining = this.getTrumpCount(trickHistory, trumpSuit);
+                const partnerVoids = this.detectPartnerVoids(trickHistory);
+                const tricksPlayed = trickHistory.length;
+                const tricksRemaining = 10 - tricksPlayed;
+
+                // Calculate current trick value
+                const currentTrickValue = trickCards.reduce((sum, c) => sum + c.value, 0);
+
+                // Endgame awareness - understand the score situation
+                let needsAggression = false;
+                let preventOpponentPoints = false;
+                if (gameState) {
+                    const myTeamId = this.id % 2; // 0,2 = team1, 1,3 = team2
+                    const myTeamTricks = myTeamId === 0 ? gameState.team1Tricks : gameState.team2Tricks;
+                    const opponentTricks = myTeamId === 0 ? gameState.team2Tricks : gameState.team1Tricks;
+                    const myTeamPoints = myTeamTricks.reduce((sum, c) => sum + c.value, 0);
+                    const opponentPoints = opponentTricks.reduce((sum, c) => sum + c.value, 0);
+
+                    const biddingTeam = gameState.highBidderId % 2;
+                    const isBiddingTeam = myTeamId === biddingTeam;
+
+                    if (isBiddingTeam) {
+                        // We made the bid - check if we're close to making it
+                        const pointsNeeded = gameState.highBid - myTeamPoints - gameState.widowValue;
+                        if (pointsNeeded > 0 && pointsNeeded <= 40) {
+                            needsAggression = true; // Need to take tricks with points
+                        }
+                    } else {
+                        // Opponent made the bid - try to set them
+                        const opponentPointsWithWidow = opponentPoints + gameState.widowValue;
+                        const opponentShortfall = gameState.highBid - opponentPointsWithWidow;
+                        if (opponentShortfall > -20 && opponentShortfall < 40) {
+                            preventOpponentPoints = true; // Close game - prevent them from making bid
+                        }
+                    }
+                }
 
                 // If leading the trick
                 if (trick.length === 0) {
-                    // Strategy: Pull trump if strong, otherwise lead a singleton to create a void
                     const trumpsInHand = this.hand.filter(c => c.suit === trumpSuit || c.rank === 'Rook');
-                    if (trumpsInHand.length > this.hand.length / 2 && trumpsInHand.some(c => c.power > 13)) {
-                        return trumpsInHand.sort((a,b) => b.power - a.power)[0]; // Lead highest trump
+                    const trumpsInOpponentHands = trumpsRemaining - trumpsInHand.length;
+
+                    // Strategy: Pull trump if we have strong trump and opponents likely have trump
+                    if (trumpsInHand.length >= 5 && trumpsInOpponentHands > 0 &&
+                        trumpsInHand.some(c => c.power > 13)) {
+                        // Lead trump to pull opponent's trump, but save Rook unless late game
+                        const trumpToLead = trumpsInHand
+                            .filter(c => c.rank !== 'Rook' || tricksRemaining <= 3)
+                            .sort((a,b) => b.power - a.power)[0];
+                        if (trumpToLead) return trumpToLead;
                     }
-                    
+
+                    // Avoid leading suits where partner is void (wastes a trick)
+                    const safeLeads = SUITS.filter(s => !partnerVoids.has(s) && s !== trumpSuit);
+
+                    // Lead singletons in non-trump suits (creates voids for rufing)
                     const suitCounts = SUITS.reduce((acc, s) => ({...acc, [s]: this.hand.filter(c => c.suit === s).length}), {});
-                    const singletonSuit = Object.keys(suitCounts).find(s => suitCounts[s] === 1 && s !== trumpSuit);
+                    const singletonSuit = safeLeads.find(s => suitCounts[s] === 1);
                     if (singletonSuit) {
-                        return this.hand.find(c => c.suit === singletonSuit); // Lead singleton
+                        return this.hand.find(c => c.suit === singletonSuit);
                     }
-                    
+
+                    // Lead from short suits where we can potentially ruff later
+                    const shortSuits = safeLeads
+                        .filter(s => suitCounts[s] > 0 && suitCounts[s] <= 2)
+                        .sort((a, b) => suitCounts[a] - suitCounts[b]);
+
+                    if (shortSuits.length > 0) {
+                        const cardsInShortSuit = this.hand.filter(c => c.suit === shortSuits[0]);
+                        return cardsInShortSuit.sort((a,b) => a.power - b.power)[0]; // Lead low
+                    }
+
                     // Default: lead lowest non-trump
-                    return playableCards.filter(c => c.suit !== trumpSuit).sort((a,b) => a.power - b.power)[0] || playableCards[0];
+                    const nonTrumps = playableCards.filter(c => c.suit !== trumpSuit && c.rank !== 'Rook');
+                    return (nonTrumps.length > 0 ? nonTrumps : playableCards).sort((a,b) => a.power - b.power)[0];
                 }
 
                 // If following suit
@@ -1148,14 +1442,21 @@
                     // "Smear" points if partner is winning
                     const pointCards = playableCards.filter(c => c.value > 0).sort((a, b) => b.value - a.value);
                     if (pointCards.length > 0) {
+                        // Don't waste Rook on low-value tricks early in the hand
+                        if (currentTrickValue < 15 && tricksRemaining > 4) {
+                            const nonRookPoints = pointCards.filter(c => c.rank !== 'Rook');
+                            if (nonRookPoints.length > 0) return nonRookPoints[0];
+                        }
                         return pointCards[0]; // Play highest point card
                     }
-                    // Otherwise, slough off lowest card
-                    return playableCards.sort((a, b) => a.power - b.power)[0];
+                    // Otherwise, slough off lowest card (save trump)
+                    const nonTrumps = playableCards.filter(c => c.suit !== trumpSuit && c.rank !== 'Rook');
+                    return (nonTrumps.length > 0 ? nonTrumps : playableCards).sort((a, b) => a.power - b.power)[0];
                 } else {
                     // Try to win the trick
                     const leadSuit = trickCards[0].rank === 'Rook' ? trumpSuit : trickCards[0].suit;
                     const winningCard = winnerInfo.card;
+                    const trickValue = currentTrickValue + playableCards.reduce((sum, c) => sum + c.value, 0);
 
                     const canWinCards = playableCards.filter(c => {
                         if (c.rank === 'Rook') return true;
@@ -1167,9 +1468,39 @@
                     });
 
                     if (canWinCards.length > 0) {
+                        // Decide if we should try to win based on trick value and game situation
+                        let worthWinning = trickValue >= 15 || tricksRemaining <= 3;
+
+                        // Endgame adjustments
+                        if (needsAggression && trickValue >= 10) {
+                            worthWinning = true; // Be more aggressive when we need points
+                        }
+                        if (preventOpponentPoints && trickValue >= 10) {
+                            worthWinning = true; // Prevent opponents from scoring
+                        }
+
+                        // Don't waste Rook on low-value tricks early unless in critical situation
+                        if (!worthWinning && tricksRemaining > 4 && !needsAggression) {
+                            const nonRookWinners = canWinCards.filter(c => c.rank !== 'Rook');
+                            if (nonRookWinners.length > 0) {
+                                return nonRookWinners.sort((a, b) => a.power - b.power)[0];
+                            }
+                            // If only Rook can win and trick isn't valuable, don't win
+                            return playableCards.filter(c => c.rank !== 'Rook').sort((a, b) => a.power - b.power)[0] || playableCards[0];
+                        }
+
                         // Win with the lowest possible card
                         return canWinCards.sort((a, b) => a.power - b.power)[0];
                     }
+
+                    // Can't win - try to smear points if valuable trick or opponent winning points
+                    if (trickValue >= 15 || (preventOpponentPoints && trickValue >= 10)) {
+                        const pointCards = playableCards.filter(c => c.value > 0 && c.rank !== 'Rook');
+                        if (pointCards.length > 0) {
+                            return pointCards.sort((a, b) => b.value - a.value)[0];
+                        }
+                    }
+
                     // Can't win, play lowest card
                     return playableCards.sort((a, b) => a.power - b.power)[0];
                 }
@@ -1241,6 +1572,11 @@
                     menuNewGame: document.getElementById('menu-new-game'),
                     menuSettings: document.getElementById('menu-settings'),
                     menuExit: document.getElementById('menu-exit'),
+                    cardTracker: document.getElementById('card-tracker'),
+                    cardTrackerToggle: document.getElementById('card-tracker-toggle'),
+                    trackerSuits: document.getElementById('tracker-suits'),
+                    trackerTrumpCount: document.getElementById('tracker-trump-count'),
+                    trackerPointsLeft: document.getElementById('tracker-points-left'),
                 };
                 this.players = [new Player(0, true), new Player(1), new Player(2), new Player(3)];
                 this.scores = { team1: 0, team2: 0 };
@@ -1251,6 +1587,7 @@
                 this.handSortOrder = 'asc';
                 this.initModals();
                 this.initMenu();
+                this.initCardTracker();
                 this.dom.seeLastTrickBtn.addEventListener('click', () => this.showLastTrick());
             }
 
@@ -1275,6 +1612,69 @@
                         this.dom.dropdownMenu.classList.remove('show');
                     }
                 });
+            }
+
+            initCardTracker() {
+                this.dom.cardTrackerToggle.addEventListener('click', () => {
+                    this.dom.cardTracker.classList.toggle('collapsed');
+                    this.dom.cardTracker.classList.toggle('expanded');
+                });
+            }
+
+            updateCardTracker() {
+                if (!this.trickHistory || this.trickHistory.length === 0) {
+                    // Initialize tracker at start of hand
+                    let html = '';
+                    SUITS.forEach(suit => {
+                        html += `<div class="tracker-suit">
+                            <div class="tracker-suit-name">
+                                <span style="color: var(--${suit.toLowerCase()}-suit)">●</span> ${suit}
+                            </div>
+                            <div class="tracker-suit-cards" data-suit="${suit}">`;
+                        RANKS.forEach(rank => {
+                            const isHighValue = rank === 1 || rank === 14 || rank === 10 || rank === 5;
+                            const displayRank = rank === 1 ? 'A' : rank;
+                            html += `<span class="tracker-card ${isHighValue ? 'high-value' : ''}" data-suit="${suit}" data-rank="${rank}">${displayRank}</span>`;
+                        });
+                        html += `</div></div>`;
+                    });
+                    html += `<div class="tracker-suit">
+                        <div class="tracker-suit-name">🎭 Rook</div>
+                        <div class="tracker-suit-cards">
+                            <span class="tracker-card high-value" data-rank="Rook">Rook</span>
+                        </div>
+                    </div>`;
+                    this.dom.trackerSuits.innerHTML = html;
+                    this.dom.trackerTrumpCount.textContent = '-';
+                    this.dom.trackerPointsLeft.textContent = '180';
+                    return;
+                }
+
+                // Mark played cards
+                const playedCards = this.trickHistory.flat().map(p => p.card);
+                playedCards.forEach(card => {
+                    const selector = card.rank === 'Rook'
+                        ? `.tracker-card[data-rank="Rook"]`
+                        : `.tracker-card[data-suit="${card.suit}"][data-rank="${card.rank}"]`;
+                    const cardEl = this.dom.trackerSuits.querySelector(selector);
+                    if (cardEl) {
+                        cardEl.classList.add('played');
+                    }
+                });
+
+                // Update trump count
+                if (this.trumpSuit) {
+                    const playedTrumps = playedCards.filter(c =>
+                        c.suit === this.trumpSuit || c.rank === 'Rook'
+                    ).length;
+                    const trumpsLeft = 12 - playedTrumps; // 11 suit cards + Rook
+                    this.dom.trackerTrumpCount.textContent = trumpsLeft;
+                }
+
+                // Update points left
+                const pointsPlayed = playedCards.reduce((sum, c) => sum + c.value, 0);
+                const pointsLeft = 180 - pointsPlayed;
+                this.dom.trackerPointsLeft.textContent = pointsLeft;
             }
 
             initModals() {
@@ -1468,6 +1868,7 @@
                 this.currentHandData = { rookWinner: null };
                 this.lastTrick = [];
                 this.trickHistory = [];
+                this.updateCardTracker(); // Reset card tracker for new hand
                 this.isFolded = false;
                 this.dom.seeLastTrickBtn.disabled = true;
                 this.dom.postBuryActions.classList.add('hidden');
@@ -1618,12 +2019,20 @@
                     this.dom.infos.forEach(info => info.classList.remove('font-bold', 'text-yellow-300'));
                     this.dom.infos[pIndex].classList.add('font-bold', 'text-yellow-300');
                     let playedCard;
-                    if (player.isHuman) { 
-                        playedCard = await this.getHumanCardPlay(); 
-                    } else { 
+                    if (player.isHuman) {
+                        playedCard = await this.getHumanCardPlay();
+                    } else {
                         await this.sleep(1000);
                         if (this.difficulty === 'hard') {
-                            playedCard = player.playAdvancedCard(this.currentTrick, this.trumpSuit, this.trickHistory);
+                            const gameState = {
+                                scores: this.scores,
+                                highBid: this.highBid,
+                                highBidderId: this.highBidder.id,
+                                team1Tricks: this.team1Tricks,
+                                team2Tricks: this.team2Tricks,
+                                widowValue: this.widow.reduce((sum, c) => sum + c.value, 0)
+                            };
+                            playedCard = player.playAdvancedCard(this.currentTrick, this.trumpSuit, this.trickHistory, gameState);
                         } else {
                              playedCard = player.playCard(this.currentTrick, this.trumpSuit, this.difficulty);
                         }
@@ -1641,10 +2050,32 @@
                 
                 this.lastTrick = [...this.currentTrick];
                 this.trickHistory.push(this.lastTrick);
+                this.updateCardTracker(); // Update tracker after each trick
                 this.dom.seeLastTrickBtn.disabled = false;
 
-                this.showMessage(`${this.dom.infos[winnerInfo.player.id].textContent} wins the trick!`, 1500);
+                // Enhanced feedback message
                 const captured = this.currentTrick.map(p => p.card);
+                const pointsInTrick = captured.reduce((sum, c) => sum + c.value, 0);
+                const winnerName = this.dom.infos[winnerInfo.player.id].textContent;
+                const winningCard = winnerInfo.card;
+
+                let reason = '';
+                if (winningCard.rank === 'Rook') {
+                    reason = 'with Rook (highest card!)';
+                } else if (this.trumpSuit && winningCard.suit === this.trumpSuit) {
+                    const leadCard = this.currentTrick[0].card;
+                    if (leadCard.suit !== this.trumpSuit || leadCard.rank === 'Rook') {
+                        reason = `with ${this.trumpSuit} ${winningCard.rank === 1 ? 'Ace' : winningCard.rank} (trump!)`;
+                    } else {
+                        reason = `with ${this.trumpSuit} ${winningCard.rank === 1 ? 'Ace' : winningCard.rank}`;
+                    }
+                } else {
+                    reason = `with ${winningCard.suit} ${winningCard.rank === 1 ? 'Ace' : winningCard.rank}`;
+                }
+
+                const pointMsg = pointsInTrick > 0 ? ` (${pointsInTrick} points!)` : '';
+                this.showMessage(`${winnerName} wins ${reason}${pointMsg}`, 1500);
+
                 if (winnerInfo.player.id === 0 || winnerInfo.player.id === 2) { this.team1Tricks.push(...captured); } else { this.team2Tricks.push(...captured); }
                 
                 // Animate trick cards flying off to the "See Last Trick" button
