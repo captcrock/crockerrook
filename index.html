@@ -513,16 +513,17 @@
             backdrop-filter: blur(0px);
         }
 
-        /* Bidding modal - reduce blur and position higher so player can see their cards */
+        /* Bidding modal - NO blur, minimal dimming so player can see their cards clearly */
         #bidding-modal.active {
-            backdrop-filter: blur(2px);
-            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(0px);
+            background-color: rgba(0, 0, 0, 0.3);
             align-items: flex-start;
-            padding-top: 10vh;
+            padding-top: 5vh;
         }
 
         #bidding-modal .modal-content {
-            max-width: 500px;
+            max-width: 450px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
         }
 
         #bidding-modal, #difficulty-modal, #trump-modal, #round-summary-modal, #last-trick-modal, #settings-modal, #rules-modal, #strategy-modal, #hint-modal, #stats-modal { 
