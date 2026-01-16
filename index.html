@@ -2404,6 +2404,8 @@
                 this.dom.postBuryActions.classList.add('hidden');
                 this.updateLiveSummary();
                 this.dom.gameSummaryBox.classList.remove('hidden');
+                // Expand panel at start of hand so players can see bidding/dealer info
+                this.dom.gameSummaryBox.classList.remove('collapsed');
                 this.dom.trickArea.innerHTML = '';
                 this.dom.nestDisplay.innerHTML = '';
                 this.dom.widowOnTable.innerHTML = '';
@@ -2536,6 +2538,16 @@
             }
             
             async startTrickPlay() {
+                // Auto-collapse the game info panel to keep it out of the way during gameplay
+                const box = this.dom.gameSummaryBox;
+                if (!box.classList.contains('collapsed')) {
+                    box.classList.add('collapsed');
+                    const toggle = box.querySelector('.collapse-toggle');
+                    const header = box.querySelector('.game-summary-header');
+                    if (toggle) toggle.textContent = '+';
+                    if (header) header.classList.add('collapsed-only');
+                }
+
                 this.trickLeaderIndex = this.players.indexOf(this.highBidder);
                 this.team1Tricks = []; this.team2Tricks = [];
                 this.trickHistory = [];
