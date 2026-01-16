@@ -1,47 +1,301 @@
-# Crocker Rook Card Game
+# 🎴 Crocker Rook Card Game
 
-A digital implementation of the classic Crocker Rook card game with enhanced features.
+A Progressive Web App (PWA) for playing the classic Crocker Rook card game with intelligent AI opponents.
 
-## New Features Added
+## ✨ Features
 
-After winning a bid, players now have four strategic options:
+- 🤖 **Advanced AI** with card counting, partner inference, and strategic play
+- 📊 **Card Tracker** - See which cards have been played
+- 💡 **Hint System** - Get AI-powered suggestions (Easy/Medium modes)
+- 📱 **Mobile Friendly** - Works in portrait and landscape
+- 📈 **Statistics** - Track your wins, losses, and performance
+- 🎯 **Offline Play** - Works without internet after first load
+- 🏠 **Installable** - Add to home screen like a native app
 
-### 1. Normal Play - Call Trump
-- The traditional option where the bidder calls the trump suit
-- Play proceeds normally with trump rules
+## 🚀 Quick Deployment Options
 
-### 2. Partner Calls Trump
-- The bidder's partner gets to choose the trump suit
-- Useful when the partner has a stronger hand or better trump options
-- Adds strategic depth to partnership play
+### Option 1: GitHub Pages (Recommended - FREE & Automatic)
 
-### 3. Fold
-- The bidder goes negative their bid amount
-- Opponents receive 0 points for the round
-- Strategic option when the hand is weaker than expected after seeing the nest
-- Provides a controlled loss option
+**One-time setup:**
 
-### 4. No Trump
-- Play with no trump suit - high card wins
-- Must still follow suit rules
-- The Rook becomes a normal card (not special)
-- Good option when you have strong cards across multiple suits
+1. **Go to Repository Settings:**
+   - Click `Settings` tab in your repo
+   - Scroll to `Pages` section (left sidebar)
 
-## How to Play
+2. **Configure:**
+   - Source: `Deploy from a branch`
+   - Branch: Select `main` (or `claude/review-game-ai-ui-B1KS9`)
+   - Folder: `/ (root)`
+   - Click `Save`
 
-1. Open `index.html` in a web browser
-2. Select difficulty level
-3. Bid on hands to win the privilege of calling trump
-4. After winning a bid, choose your post-bid option
-5. Play tricks to score points
-6. First team to reach the target score wins
+3. **Your game will be live in ~2 minutes at:**
+   ```
+   https://captcrock.github.io/crockerrook/
+   ```
 
-## Game Rules
+4. **Updates are automatic:**
+   - Every git push auto-deploys!
+   - No manual builds needed
 
-- Each player receives 10 cards
-- 5 cards form the "nest" (widow)
-- Minimum bid is 90 points
-- Point values: Rook (20), Aces (15), 14s & 10s (10), 5s (5)
-- Must follow suit if possible
-- Trump cards beat non-trump cards
-- In No Trump mode, only the lead suit can win tricks
+**Share URL with friends → They can install as app on their phones!**
+
+---
+
+### Option 2: Netlify (Alternative - Also FREE)
+
+1. **One-Click Deploy:**
+   - Go to https://app.netlify.com/start
+   - Connect your GitHub repo
+   - Click `Deploy site`
+
+2. **Or use Netlify CLI:**
+   ```bash
+   npm install -g netlify-cli
+   netlify deploy --prod
+   ```
+
+3. **Custom domain (optional):**
+   - Netlify gives you: `your-app-name.netlify.app`
+   - Can add custom domain in settings
+
+---
+
+### Option 3: Vercel (Alternative)
+
+```bash
+npm i -g vercel
+cd /path/to/crockerrook
+vercel --prod
+```
+
+Your game deploys to: `crockerrook.vercel.app`
+
+---
+
+### Option 4: Share HTML File Directly
+
+The game works as a **single file**!
+
+**Easy distribution:**
+1. Send `index.html` to anyone
+2. They open it in browser
+3. Works offline!
+
+**Or upload to any web hosting:**
+- Dropbox Public folder
+- Google Drive (share publicly)
+- Any web server
+
+---
+
+## 📱 How Users Install Your PWA
+
+Once deployed, users can install your game like a native app:
+
+### On iPhone/iPad (iOS):
+1. Open your game URL in Safari
+2. Tap the **Share** button (square with arrow)
+3. Scroll down and tap **"Add to Home Screen"**
+4. Tap **"Add"**
+5. ✅ App icon appears on home screen!
+
+### On Android:
+1. Open your game URL in Chrome
+2. Tap menu (⋮ three dots)
+3. Tap **"Install app"** or **"Add to Home Screen"**
+4. Tap **"Install"**
+5. ✅ App icon appears on home screen!
+
+### On Desktop (Chrome/Edge):
+1. Open your game URL
+2. Look for install icon in address bar (➕ or ⬇)
+3. Click **"Install"**
+4. ✅ Standalone app window opens!
+
+**Benefits:**
+- ✅ Appears in app drawer/home screen
+- ✅ Fullscreen (no browser UI)
+- ✅ Works offline after first load
+- ✅ Push notifications (future feature)
+- ❌ No app store needed!
+- ❌ No approval process!
+- ❌ No developer account needed!
+
+---
+
+## 🎨 Customizing App Icons
+
+Currently using placeholders. Replace with your own:
+
+**Required files:**
+- `icon-192.png` - 192x192px PNG
+- `icon-512.png` - 512x512px PNG
+
+**Quick Icon Generation:**
+- https://favicon.io/favicon-converter/
+- https://realfavicongenerator.net/
+- https://www.pwabuilder.com/imageGenerator
+
+Upload your Rook card logo, download PNG files, replace in repo!
+
+---
+
+## 🎮 Game Features
+
+### Strategic Options After Bidding:
+1. **Call Trump** - Traditional play
+2. **Ask Partner** - Partner calls trump
+3. **No Trump** - High card wins (Rook is not special)
+4. **Fold** - Take controlled loss
+
+### AI Difficulty Levels:
+- **Easy** - Learning mode with hints
+- **Medium** - Casual play with hints
+- **Hard** - Advanced AI (card counting, endgame strategy, partner coordination)
+
+### In-Game Hints (Easy/Medium):
+- Click 💡 button during your turn
+- AI suggests best card with detailed explanation
+- Learn optimal strategy!
+
+### Statistics Tracking:
+- Win/loss record
+- Performance by difficulty
+- Bidding success rate
+- Shoot the moon attempts
+- Stored locally (persists across sessions)
+
+---
+
+## 🛠️ Development
+
+**Local Testing:**
+```bash
+# Python
+python -m http.server 8000
+
+# Node.js
+npx http-server
+
+# PHP
+php -S localhost:8000
+```
+
+Open: http://localhost:8000
+
+**The entire game is in `index.html`!**
+- No build process
+- No npm install
+- Edit → Refresh → Test
+- Commit → Auto-deploys!
+
+---
+
+## 📦 Publishing to App Stores (Optional)
+
+If you want your game in Google Play / Apple App Store:
+
+### Method 1: PWA Builder (Easiest)
+1. Deploy to GitHub Pages first
+2. Go to https://www.pwabuilder.com/
+3. Enter your URL: `https://captcrock.github.io/crockerrook/`
+4. Click "Build My PWA"
+5. Download Android/iOS packages
+6. Submit to stores!
+
+**Google Play:**
+- One-time $25 fee
+- APK generated by PWA Builder
+- Upload to Google Play Console
+
+**Apple App Store:**
+- Need $99/year Apple Developer account
+- More complex submission process
+
+### Method 2: Capacitor (More Control)
+```bash
+npm init
+npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/ios
+npx cap init "Crocker Rook" "com.captcrock.rook"
+npx cap add android
+npx cap add ios
+npx cap copy
+npx cap open android  # Opens Android Studio
+npx cap open ios      # Opens Xcode (Mac only)
+```
+
+**Pros:** Full native app capabilities
+**Cons:** More setup, need Android Studio / Xcode
+
+---
+
+## 🎯 Recommended Approach
+
+For most users, **I recommend:**
+
+1. ✅ **Deploy to GitHub Pages** (5 minutes, free, automatic)
+2. ✅ **Share URL with friends**
+3. ✅ **They install as PWA** (no app store!)
+4. ✅ **Updates are instant** (just push to GitHub)
+
+**Only publish to app stores if you:**
+- Want discoverability in stores
+- Need in-app purchases
+- Want "official" app listing
+- Don't mind $25-99 fees
+
+**99% of users are fine with PWA!**
+
+---
+
+## 📊 Technical Details
+
+- **Stack:** Vanilla JavaScript + Tailwind CSS
+- **File:** Single `index.html` (2,900 lines)
+- **Size:** ~150KB (loads in <1 second)
+- **Offline:** Service Worker caches everything
+- **Storage:** LocalStorage for stats
+- **Icons:** PNG (192px & 512px)
+- **Manifest:** PWA manifest.json
+
+---
+
+## 🎲 Game Rules Summary
+
+- 4 players (you + partner vs 2 AI opponents)
+- Each player gets 10 cards, 5 in the nest
+- Bid minimum 90 points to win hand
+- Call trump (or No Trump, Ask Partner, Fold)
+- Point values:
+  - Rook: 20 points
+  - Aces (1): 15 points
+  - 14s & 10s: 10 points each
+  - 5s: 5 points
+- First to 500 points wins!
+
+**See in-game "View Rules" for complete details**
+
+---
+
+## 🤝 Contributing
+
+Feel free to fork and submit PRs!
+
+## 📄 License
+
+MIT License - Use freely!
+
+---
+
+## 🚀 Next Steps
+
+1. **Deploy to GitHub Pages** (see Option 1 above)
+2. **Test on your phone** (install as PWA)
+3. **Share with friends!**
+4. **Enjoy!** 🎉
+
+**Questions?** Open an issue on GitHub!
+
+---
+
+**Made with ❤️ using Claude + lots of card game strategy**
